@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   selectBlock,
@@ -15,10 +15,10 @@ export default function Canvas() {
   const { blocks, selectedBlockId } = useAppSelector(
     (state) => state.email
   );
-
   const [showGrid, setShowGrid] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [cellSize, setCellSize] = useState(20);
 
   const effectiveShowGrid =
   showGrid
@@ -34,7 +34,7 @@ export default function Canvas() {
     if (!gridElement) return;
 
     const cellWidth = gridElement.clientWidth / 48;
-    const rowHeight = 40;
+    const rowHeight = cellSize;
 
     const newCol =
       block.colStart + Math.round(delta.x / cellWidth);
@@ -76,11 +76,29 @@ export default function Canvas() {
     return (
       <div
         ref={setNodeRef}
-        style={style}
-        {...listeners}
-        {...attributes}
+        style={{
+          ...style,
+          cursor: 'default',
+        }}
         onClick={() => dispatch(selectBlock(block.id))}
       >
+      {/* Drag Handle */}
+      <div
+        {...listeners}
+        {...attributes}
+        style={{
+         cursor: 'grab',
+         background: '#eee',
+         padding: '4px',
+         marginBottom: '6px',
+         fontSize: '12px',
+         textAlign: 'center',
+        }}
+       >
+        Drag
+      </div>
+
+        {/* Delete Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -97,7 +115,7 @@ export default function Canvas() {
             cursor: 'pointer',
           }}
         >
-          X
+     X
         </button>
 
         <strong>{block.type.toUpperCase()}</strong>
@@ -120,12 +138,12 @@ export default function Canvas() {
         onMouseLeave={() => setIsHovering(false)}
         style={{
           flex: 1,
-          padding: '20px',
+          padding: '0px',
           backgroundColor: '#f8f9fa',
           display: 'grid',
           gridTemplateColumns: 'repeat(48, 1fr)',
-          gridAutoRows: '40px',
-          gap: '5px',
+          gridAutoRows: `${cellSize}px`,
+          gap: '0px',
           position: 'relative',
 
           backgroundImage: effectiveShowGrid
@@ -139,7 +157,7 @@ export default function Canvas() {
             `
             : 'none',
 
-          backgroundSize: `${100 / 48}% 40px`,
+          backgroundSize: `${100 / 48}% ${cellSize}px`,
         }}
       >
         {/* Grid Toggle Button */}
