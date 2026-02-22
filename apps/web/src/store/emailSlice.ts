@@ -125,6 +125,27 @@ const emailSlice = createSlice({
         block.rowStart = action.payload.rowStart;
       }
     },
+    updateBlockDimensions: (
+      state,
+      action: PayloadAction<{
+        id: string;
+        colSpan: number;
+        rowSpan: number;
+        colStart: number;
+        rowStart: number;
+      }>
+    ) => {
+      const block = state.blocks.find(
+        (b) => b.id === action.payload.id
+      );
+
+      if (!block) return;
+
+      block.colSpan = action.payload.colSpan;
+      block.rowSpan = action.payload.rowSpan;
+      block.colStart = action.payload.colStart;
+      block.rowStart = action.payload.rowStart;
+    },
     updateBlockHeight: (
       state,
       action: PayloadAction<{ id: string; rowSpan: number }>
@@ -172,5 +193,6 @@ export const {
   updateBlockWidth,
   updateBlockPosition,
   updateBlockHeight,
+  updateBlockDimensions,
 } = emailSlice.actions;
 export default emailSlice.reducer;
