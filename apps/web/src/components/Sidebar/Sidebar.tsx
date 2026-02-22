@@ -17,7 +17,7 @@ export default function Sidebar() {
         colSpan: 6,
 
         rowStart: 1,
-        rowSpan: 3,
+        rowSpan: 6,
       })
     );
   };

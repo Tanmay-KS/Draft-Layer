@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   selectBlock,
   removeBlock,
   updateBlockPosition,
+  updateBlockWidth,
+  updateBlockHeight,
+  updateBlockDimensions,
 } from '../../store/emailSlice';
 
 import { DndContext, useDraggable } from '@dnd-kit/core';
@@ -15,10 +18,10 @@ export default function Canvas() {
   const { blocks, selectedBlockId } = useAppSelector(
     (state) => state.email
   );
-
   const [showGrid, setShowGrid] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [cellSize, setCellSize] = useState(20);
 
   const effectiveShowGrid =
   showGrid
@@ -34,7 +37,7 @@ export default function Canvas() {
     if (!gridElement) return;
 
     const cellWidth = gridElement.clientWidth / 48;
-    const rowHeight = 40;
+    const rowHeight = cellSize;
 
     const newCol =
       block.colStart + Math.round(delta.x / cellWidth);
@@ -56,7 +59,15 @@ export default function Canvas() {
       useDraggable({
         id: block.id,
       });
-
+    type ResizeDir =
+      | "right"
+      | "left"
+      | "bottom"
+      | "top"
+      | "top-left"
+      | "top-right"
+      | "bottom-left"
+      | "bottom-right";
     const style = {
       transform: transform
         ? `translate(${transform.x}px, ${transform.y}px)`
@@ -72,15 +83,177 @@ export default function Canvas() {
       cursor: 'grab',
       position: 'relative' as const,
     };
+    const handleStyle = (position: string) => {
+      const base = {
+        position: 'absolute' as const,
+        width: '10px',
+        height: '10px',
+        background: 'white',
+        border: '2px solid blue',
+        zIndex: 10,
+      };
 
+      switch (position) {
+        case 'top':
+          return { ...base, top: '-5px', left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
+        case 'bottom':
+          return { ...base, bottom: '-5px', left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
+        case 'left':
+          return { ...base, left: '-5px', top: '50%', transform: 'translateY(-50%)', cursor: 'ew-resize' };
+        case 'right':
+          return { ...base, right: '-5px', top: '50%', transform: 'translateY(-50%)', cursor: 'ew-resize' };
+        case 'top-left':
+          return { ...base, top: '-5px', left: '-5px', cursor: 'nwse-resize' };
+        case 'top-right':
+          return { ...base, top: '-5px', right: '-5px', cursor: 'nesw-resize' };
+        case 'bottom-left':
+          return { ...base, bottom: '-5px', left: '-5px', cursor: 'nesw-resize' };
+        case 'bottom-right':
+          return { ...base, bottom: '-5px', right: '-5px', cursor: 'nwse-resize' };
+        default:
+          return base;
+      }
+    };
+    const startResize = (e: React.MouseEvent, direction: ResizeDir) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const startX = e.clientX;
+      const startY = e.clientY;
+
+      const startColSpan = block.colSpan;
+      const startRowSpan = block.rowSpan;
+      const startColStart = block.colStart;
+      const startRowStart = block.rowStart;
+
+      const gridElement = document.getElementById('canvas-grid');
+      if (!gridElement) return;
+
+      const cellWidth = gridElement.clientWidth / 48;
+      const rowHeight = cellSize;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+
+        const colChange =
+          deltaX >= 0
+            ? Math.floor(deltaX / cellWidth)
+            : Math.ceil(deltaX / cellWidth);
+
+        const rowChange =
+          deltaY >= 0
+            ? Math.floor(deltaY / rowHeight)
+            : Math.ceil(deltaY / rowHeight);
+
+        let newColSpan = startColSpan;
+        let newRowSpan = startRowSpan;
+        let newColStart = startColStart;
+        let newRowStart = startRowStart;
+
+        // RIGHT
+        if (direction.includes("right")) {
+          newColSpan = Math.max(1, startColSpan + colChange);
+        }
+
+        // LEFT
+        if (direction.includes("left")) {
+          newColSpan = Math.max(1, startColSpan - colChange);
+          newColStart = startColStart + colChange;
+        }
+
+        // BOTTOM
+        if (direction.includes("bottom")) {
+          newRowSpan = Math.max(1, startRowSpan + rowChange);
+        }
+
+        // TOP
+        if (direction.includes("top")) {
+          newRowSpan = Math.max(1, startRowSpan - rowChange);
+          newRowStart = startRowStart + rowChange;
+        }
+
+        // Prevent overflow horizontally
+        if (newColStart < 1) return;
+        if (newColStart + newColSpan - 1 > 48) return;
+
+        // Prevent overflow vertically (assume 100 rows)
+        if (newRowStart < 1) return;
+        if (newRowStart + newRowSpan - 1 > 100) return;
+        // Avoid unnecessary re-renders
+        if (
+          newColSpan === block.colSpan &&
+          newRowSpan === block.rowSpan &&
+          newColStart === block.colStart &&
+          newRowStart === block.rowStart
+        ) {
+          return;
+        }
+
+        dispatch(
+          updateBlockDimensions({
+            id: block.id,
+            colSpan: newColSpan,
+            rowSpan: newRowSpan,
+            colStart: newColStart,
+            rowStart: newRowStart,
+          })
+        );
+      };
+
+      const onMouseUp = () => {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      };
+
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    };
     return (
       <div
         ref={setNodeRef}
-        style={style}
-        {...listeners}
-        {...attributes}
+        style={{
+          ...style,
+          cursor: 'default',
+        }}
         onClick={() => dispatch(selectBlock(block.id))}
       >
+      {selectedBlockId === block.id && (
+        <>
+          <div style={handleStyle("right")} onMouseDown={(e) => startResize(e, "right")} />
+
+          <div style={handleStyle("left")} onMouseDown={(e) => startResize(e, "left")} />
+
+          <div style={handleStyle("bottom")} onMouseDown={(e) => startResize(e, "bottom")} />
+
+          <div style={handleStyle("top")} onMouseDown={(e) => startResize(e, "top")} />
+            
+          <div style={handleStyle("top-left")} onMouseDown={(e) => startResize(e, "top-left")} />
+
+          <div style={handleStyle("top-right")} onMouseDown={(e) => startResize(e, "top-right")} />
+
+          <div style={handleStyle("bottom-left")} onMouseDown={(e) => startResize(e, "bottom-left")} />
+
+          <div style={handleStyle("bottom-right")} onMouseDown={(e) => startResize(e, "bottom-right")} />
+        </>
+      )}
+      {/* Drag Handle */}
+      <div
+        {...listeners}
+        {...attributes}
+        style={{
+         cursor: 'grab',
+         background: '#eee',
+         padding: '4px',
+         marginBottom: '6px',
+         fontSize: '12px',
+         textAlign: 'center',
+        }}
+       >
+        Drag
+      </div>
+
+        {/* Delete Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -97,7 +270,7 @@ export default function Canvas() {
             cursor: 'pointer',
           }}
         >
-          X
+     X
         </button>
 
         <strong>{block.type.toUpperCase()}</strong>
@@ -120,12 +293,12 @@ export default function Canvas() {
         onMouseLeave={() => setIsHovering(false)}
         style={{
           flex: 1,
-          padding: '20px',
+          padding: '0px',
           backgroundColor: '#f8f9fa',
           display: 'grid',
           gridTemplateColumns: 'repeat(48, 1fr)',
-          gridAutoRows: '40px',
-          gap: '5px',
+          gridAutoRows: `${cellSize}px`,
+          gap: '0px',
           position: 'relative',
 
           backgroundImage: effectiveShowGrid
@@ -139,7 +312,7 @@ export default function Canvas() {
             `
             : 'none',
 
-          backgroundSize: `${100 / 48}% 40px`,
+          backgroundSize: `${100 / 48}% ${cellSize}px`,
         }}
       >
         {/* Grid Toggle Button */}
