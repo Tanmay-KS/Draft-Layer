@@ -22,12 +22,17 @@ export default function Canvas() {
   const [isHovering, setIsHovering] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [cellSize, setCellSize] = useState(20);
-
+  const MAX_ROWS = 100;
   const effectiveShowGrid =
   showGrid
     ? true
     : isDragging || isHovering;
-  const handleDragEnd = (event: any) => {
+  
+    
+    function clamp(value: number, min: number, max: number) {
+      return Math.min(Math.max(value, min), max);
+    }
+    const handleDragEnd = (event: any) => {
     const { active, delta } = event;
 
     const block = blocks.find((b) => b.id === active.id);
@@ -48,8 +53,16 @@ export default function Canvas() {
     dispatch(
       updateBlockPosition({
         id: block.id,
-        colStart: Math.max(1, newCol),
-        rowStart: Math.max(1, newRow),
+        colStart : clamp(
+          newCol,
+          1,
+          48 - block.colSpan + 1
+        ),
+        rowStart: clamp(
+          newRow,
+          1,
+          MAX_ROWS - block.rowSpan + 1
+        ),
       })
     );
   };
@@ -300,7 +313,7 @@ export default function Canvas() {
           gridAutoRows: `${cellSize}px`,
           gap: '0px',
           position: 'relative',
-
+          // height:'600 px',
           backgroundImage: effectiveShowGrid
             ? `
               linear-gradient(to right, rgba(0,0,0,${
