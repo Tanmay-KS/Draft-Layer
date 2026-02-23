@@ -11,13 +11,17 @@ export default function Sidebar() {
       addBlock({
         id: Date.now().toString(),
         type,
-        content: `${type} block`,
 
-        colStart: 1,
-        colSpan: 6,
+        layout: {
+          colStart: 1,
+          colSpan: 6,
+          rowStart: 1,
+          rowSpan: 6,
+        },
 
-        rowStart: 1,
-        rowSpan: 6,
+        content: {
+          value: `${type} block`,
+        },
       })
     );
   };

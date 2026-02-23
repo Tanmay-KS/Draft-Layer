@@ -41,7 +41,7 @@ export default function Inspector() {
       <p><strong>Type:</strong> {selectedBlock.type}</p>
 
       <textarea
-        value={selectedBlock.content}
+        value={selectedBlock.content.value}
         onChange={(e) =>
           dispatch(
             updateBlockContent({
@@ -61,7 +61,7 @@ export default function Inspector() {
         type="range"
         min={1}
         max={48}
-        value={selectedBlock.colSpan}
+        value={selectedBlock.layout.colSpan}
         onChange={(e) =>
           dispatch(
             updateBlockWidth({
@@ -77,13 +77,13 @@ export default function Inspector() {
         type="number"
         min={1}
         max={24}
-        value={selectedBlock.colStart}
+        value={selectedBlock.layout.colStart}
         onChange={(e) =>
           dispatch(
             updateBlockPosition({
               id: selectedBlock.id,
               colStart: Number(e.target.value),
-              rowStart: selectedBlock.rowStart,
+              rowStart: selectedBlock.layout.rowStart,
             })
           )
         }
@@ -93,12 +93,12 @@ export default function Inspector() {
       <input
         type="number"
         min={1}
-        value={selectedBlock.rowStart}
+        value={selectedBlock.layout.rowStart}
         onChange={(e) =>
           dispatch(
             updateBlockPosition({
               id: selectedBlock.id,
-              colStart: selectedBlock.colStart,
+              colStart: selectedBlock.layout.colStart,
               rowStart: Number(e.target.value),
             })
           )
@@ -108,7 +108,7 @@ export default function Inspector() {
       <input
         type="number"
         min={1}
-        value={selectedBlock.rowSpan}
+        value={selectedBlock.layout.rowSpan}
         onChange={(e) =>
           dispatch(
             updateBlockHeight({
@@ -118,7 +118,7 @@ export default function Inspector() {
           )
         }
       />
-      <p>{selectedBlock.colSpan} / 48</p>
+      <p>{selectedBlock.layout.colSpan} / 48</p>
     </div>
   );
 }
