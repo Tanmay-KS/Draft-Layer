@@ -45,10 +45,10 @@ export default function Canvas() {
     const rowHeight = cellSize;
 
     const newCol =
-      block.colStart + Math.round(delta.x / cellWidth);
+      block.layout.colStart + Math.round(delta.x / cellWidth);
 
     const newRow =
-      block.rowStart + Math.round(delta.y / rowHeight);
+      block.layout.rowStart + Math.round(delta.y / rowHeight);
 
     dispatch(
       updateBlockPosition({
@@ -56,12 +56,12 @@ export default function Canvas() {
         colStart : clamp(
           newCol,
           1,
-          48 - block.colSpan + 1
+          48 - block.layout.colSpan + 1
         ),
         rowStart: clamp(
           newRow,
           1,
-          MAX_ROWS - block.rowSpan + 1
+          MAX_ROWS - block.layout.rowSpan + 1
         ),
       })
     );
@@ -85,14 +85,23 @@ export default function Canvas() {
       transform: transform
         ? `translate(${transform.x}px, ${transform.y}px)`
         : undefined,
-      gridColumn: `${block.colStart} / span ${block.colSpan}`,
-      gridRow: `${block.rowStart} / span ${block.rowSpan}`,
-      background: 'white',
+
+      gridColumn: `${block.layout.colStart} / span ${block.layout.colSpan}`,
+      gridRow: `${block.layout.rowStart} / span ${block.layout.rowSpan}`,
+
+      background: block.style.backgroundColor,
+
       padding: '10px',
+
       border:
         selectedBlockId === block.id
-          ? '2px solid blue'
-          : '1px solid #ddd',
+          ? `2px solid blue`
+          : `${block.style.border.width}px solid ${block.style.border.color}`,
+
+      borderRadius: `${block.style.border.radius}px`,
+
+      opacity: block.style.opacity,
+
       cursor: 'grab',
       position: 'relative' as const,
     };
@@ -134,10 +143,10 @@ export default function Canvas() {
       const startX = e.clientX;
       const startY = e.clientY;
 
-      const startColSpan = block.colSpan;
-      const startRowSpan = block.rowSpan;
-      const startColStart = block.colStart;
-      const startRowStart = block.rowStart;
+      const startColSpan = block.layout.colSpan;
+      const startRowSpan = block.layout.rowSpan;
+      const startColStart = block.layout.colStart;
+      const startRowStart = block.layout.rowStart;
 
       const gridElement = document.getElementById('canvas-grid');
       if (!gridElement) return;
@@ -195,10 +204,10 @@ export default function Canvas() {
         if (newRowStart + newRowSpan - 1 > 100) return;
         // Avoid unnecessary re-renders
         if (
-          newColSpan === block.colSpan &&
-          newRowSpan === block.rowSpan &&
-          newColStart === block.colStart &&
-          newRowStart === block.rowStart
+          newColSpan === block.layout.colSpan &&
+          newRowSpan === block.layout.rowSpan &&
+          newColStart === block.layout.colStart &&
+          newRowStart === block.layout.rowStart
         ) {
           return;
         }
@@ -287,7 +296,7 @@ export default function Canvas() {
         </button>
 
         <strong>{block.type.toUpperCase()}</strong>
-        <div>{block.content}</div>
+        <div>{block.content.value}</div>
       </div>
     );
   }

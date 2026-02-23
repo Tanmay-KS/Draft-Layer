@@ -1,11 +1,29 @@
+export interface BlockStyle {
+  backgroundColor: string;
+  border: {
+    width: number;
+    color: string;
+    radius: number;
+  };
+  shadow: string;
+  opacity: number;
+}
+
 export interface EmailBlock {
   id: string;
-  type: 'text' | 'image' | 'button';
-  content: string;
-  colStart: number; // starting column
-  colSpan: number;  // width
-  rowStart: number; // starting row
-  rowSpan: number;  // height
+  type: string;
+
+  layout: {
+    colStart: number;
+    colSpan: number;
+    rowStart: number;
+    rowSpan: number;
+  };
+
+  style: BlockStyle;
+  content: {
+    value: string;
+  };
 }
 
 export interface EmailState {
