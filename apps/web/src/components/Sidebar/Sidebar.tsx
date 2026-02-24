@@ -1,7 +1,7 @@
 'use client';
 
-import { useAppDispatch } from '../../store/hooks';
-import { addBlock } from '../../store/emailSlice';
+import { useAppDispatch } from '../../../src/store/hooks';
+import { addBlock } from '../../../src/store/emailSlice';
 
 export default function Sidebar() {
   const dispatch = useAppDispatch();
