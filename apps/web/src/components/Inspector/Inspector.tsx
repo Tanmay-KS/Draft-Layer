@@ -5,13 +5,14 @@ import { updateBlockContent, updateBlockWidth,updateBlockPosition,updateBlockHei
 
 export default function Inspector() {
   const dispatch = useAppDispatch();
-  const { blocks, selectedBlockId } = useAppSelector(
+  const { blocks, selectedTarget } = useAppSelector(
     (state) => state.email
   );
 
-  const selectedBlock = blocks.find(
-    (block) => block.id === selectedBlockId
-  );
+  const selectedBlock =
+    selectedTarget?.type === 'block'
+      ? blocks.find((block) => block.id === selectedTarget.id)
+      : null;
 
   if (!selectedBlock) {
     return (

@@ -28,5 +28,9 @@ export interface EmailBlock {
 
 export interface EmailState {
   blocks: EmailBlock[];
-  selectedBlockId: string | null;
+  selectedTarget: {
+    type: 'block' | 'canvas';
+    id?: string;
+  } | null;
+  canvasStyle: BlockStyle;
 }
