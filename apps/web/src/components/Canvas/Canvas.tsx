@@ -1,40 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState,useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
-  selectBlock,
+  selectTarget,
   removeBlock,
   updateBlockPosition,
   updateBlockWidth,
   updateBlockHeight,
   updateBlockDimensions,
+  updateBlockStyle,
+  updateCanvasStyle,
 } from '../../store/emailSlice';
 
 import { DndContext, useDraggable } from '@dnd-kit/core';
 
 export default function Canvas() {
   const dispatch = useAppDispatch();
-  const { blocks, selectedBlockId } = useAppSelector(
+  const { blocks, selectedTarget ,canvasStyle} = useAppSelector(
     (state) => state.email
   );
+
   const [showGrid, setShowGrid] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [cellSize, setCellSize] = useState(20);
+  const [cellSize] = useState(20);
+
   const MAX_ROWS = 100;
+
   const effectiveShowGrid =
-  showGrid
-    ? true
-    : isDragging || isHovering;
+    showGrid ? true : isDragging || isHovering;
   
-    
-    function clamp(value: number, min: number, max: number) {
-      return Math.min(Math.max(value, min), max);
-    }
-    const handleDragEnd = (event: any) => {
+  function clamp(value: number, min: number, max: number) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  const handleDragEnd = (event: any) => {
     const { active, delta } = event;
 
+    console.log("Drag ended", active.id);
     const block = blocks.find((b) => b.id === active.id);
     if (!block) return;
 
@@ -53,7 +57,7 @@ export default function Canvas() {
     dispatch(
       updateBlockPosition({
         id: block.id,
-        colStart : clamp(
+        colStart: clamp(
           newCol,
           1,
           48 - block.layout.colSpan + 1
@@ -72,15 +76,17 @@ export default function Canvas() {
       useDraggable({
         id: block.id,
       });
+
     type ResizeDir =
-      | "right"
-      | "left"
-      | "bottom"
-      | "top"
-      | "top-left"
-      | "top-right"
-      | "bottom-left"
-      | "bottom-right";
+      | 'right'
+      | 'left'
+      | 'bottom'
+      | 'top'
+      | 'top-left'
+      | 'top-right'
+      | 'bottom-left'
+      | 'bottom-right';
+
     const style = {
       transform: transform
         ? `translate(${transform.x}px, ${transform.y}px)`
@@ -90,21 +96,21 @@ export default function Canvas() {
       gridRow: `${block.layout.rowStart} / span ${block.layout.rowSpan}`,
 
       background: block.style.backgroundColor,
-
       padding: '10px',
 
       border:
-        selectedBlockId === block.id
+        selectedTarget?.type === 'block' &&
+        selectedTarget.id === block.id
           ? `2px solid blue`
           : `${block.style.border.width}px solid ${block.style.border.color}`,
 
       borderRadius: `${block.style.border.radius}px`,
-
       opacity: block.style.opacity,
-
+      
       cursor: 'grab',
       position: 'relative' as const,
     };
+
     const handleStyle = (position: string) => {
       const base = {
         position: 'absolute' as const,
@@ -114,7 +120,6 @@ export default function Canvas() {
         border: '2px solid blue',
         zIndex: 10,
       };
-
       switch (position) {
         case 'top':
           return { ...base, top: '-5px', left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
@@ -136,6 +141,7 @@ export default function Canvas() {
           return base;
       }
     };
+
     const startResize = (e: React.MouseEvent, direction: ResizeDir) => {
       e.stopPropagation();
       e.preventDefault();
@@ -173,36 +179,29 @@ export default function Canvas() {
         let newColStart = startColStart;
         let newRowStart = startRowStart;
 
-        // RIGHT
-        if (direction.includes("right")) {
+        if (direction.includes('right')) {
           newColSpan = Math.max(1, startColSpan + colChange);
         }
 
-        // LEFT
-        if (direction.includes("left")) {
+        if (direction.includes('left')) {
           newColSpan = Math.max(1, startColSpan - colChange);
           newColStart = startColStart + colChange;
         }
 
-        // BOTTOM
-        if (direction.includes("bottom")) {
+        if (direction.includes('bottom')) {
           newRowSpan = Math.max(1, startRowSpan + rowChange);
         }
 
-        // TOP
-        if (direction.includes("top")) {
+        if (direction.includes('top')) {
           newRowSpan = Math.max(1, startRowSpan - rowChange);
           newRowStart = startRowStart + rowChange;
         }
 
-        // Prevent overflow horizontally
         if (newColStart < 1) return;
         if (newColStart + newColSpan - 1 > 48) return;
-
-        // Prevent overflow vertically (assume 100 rows)
         if (newRowStart < 1) return;
-        if (newRowStart + newRowSpan - 1 > 100) return;
-        // Avoid unnecessary re-renders
+        if (newRowStart + newRowSpan - 1 > MAX_ROWS) return;
+
         if (
           newColSpan === block.layout.colSpan &&
           newRowSpan === block.layout.rowSpan &&
@@ -224,58 +223,60 @@ export default function Canvas() {
       };
 
       const onMouseUp = () => {
-        window.removeEventListener("mousemove", onMouseMove);
-        window.removeEventListener("mouseup", onMouseUp);
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
       };
 
-      window.addEventListener("mousemove", onMouseMove);
-      window.addEventListener("mouseup", onMouseUp);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
     };
+
     return (
       <div
         ref={setNodeRef}
-        style={{
-          ...style,
-          cursor: 'default',
+        style={style}
+        onClick={(e) => {
+          e.stopPropagation();
+
+          if (
+            selectedTarget?.type === 'block' &&
+            selectedTarget.id === block.id
+          ) {
+            dispatch(selectTarget(null));
+          } else {
+            dispatch(selectTarget({ type: 'block', id: block.id }));
+          }
         }}
-        onClick={() => dispatch(selectBlock(block.id))}
       >
-      {selectedBlockId === block.id && (
-        <>
-          <div style={handleStyle("right")} onMouseDown={(e) => startResize(e, "right")} />
+        {selectedTarget?.type === 'block' &&
+          selectedTarget.id === block.id && (
+            <>
+              <div style={handleStyle('right')} onMouseDown={(e) => startResize(e, 'right')} />
+              <div style={handleStyle('left')} onMouseDown={(e) => startResize(e, 'left')} />
+              <div style={handleStyle('bottom')} onMouseDown={(e) => startResize(e, 'bottom')} />
+              <div style={handleStyle('top')} onMouseDown={(e) => startResize(e, 'top')} />
+              <div style={handleStyle('top-left')} onMouseDown={(e) => startResize(e, 'top-left')} />
+              <div style={handleStyle('top-right')} onMouseDown={(e) => startResize(e, 'top-right')} />
+              <div style={handleStyle('bottom-left')} onMouseDown={(e) => startResize(e, 'bottom-left')} />
+              <div style={handleStyle('bottom-right')} onMouseDown={(e) => startResize(e, 'bottom-right')} />
+            </>
+          )}
 
-          <div style={handleStyle("left")} onMouseDown={(e) => startResize(e, "left")} />
+        <div
+          {...listeners}
+          {...attributes}
+          style={{
+            cursor: 'grab',
+            background: '#eee',
+            padding: '4px',
+            marginBottom: '6px',
+            fontSize: '12px',
+            textAlign: 'center',
+          }}
+        >
+          Drag
+        </div>
 
-          <div style={handleStyle("bottom")} onMouseDown={(e) => startResize(e, "bottom")} />
-
-          <div style={handleStyle("top")} onMouseDown={(e) => startResize(e, "top")} />
-            
-          <div style={handleStyle("top-left")} onMouseDown={(e) => startResize(e, "top-left")} />
-
-          <div style={handleStyle("top-right")} onMouseDown={(e) => startResize(e, "top-right")} />
-
-          <div style={handleStyle("bottom-left")} onMouseDown={(e) => startResize(e, "bottom-left")} />
-
-          <div style={handleStyle("bottom-right")} onMouseDown={(e) => startResize(e, "bottom-right")} />
-        </>
-      )}
-      {/* Drag Handle */}
-      <div
-        {...listeners}
-        {...attributes}
-        style={{
-         cursor: 'grab',
-         background: '#eee',
-         padding: '4px',
-         marginBottom: '6px',
-         fontSize: '12px',
-         textAlign: 'center',
-        }}
-       >
-        Drag
-      </div>
-
-        {/* Delete Button */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -292,7 +293,7 @@ export default function Canvas() {
             cursor: 'pointer',
           }}
         >
-     X
+          X
         </button>
 
         <strong>{block.type.toUpperCase()}</strong>
@@ -311,33 +312,28 @@ export default function Canvas() {
     >
       <div
         id="canvas-grid"
+        onClick={() => dispatch(selectTarget(null))}
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
         style={{
           flex: 1,
-          padding: '0px',
-          backgroundColor: '#f8f9fa',
+          backgroundColor: canvasStyle.backgroundColor,
+          opacity: canvasStyle.opacity,
+          border: `${canvasStyle.border.width}px solid ${canvasStyle.border.color}`,
+          borderRadius: `${canvasStyle.border.radius}px`,
           display: 'grid',
           gridTemplateColumns: 'repeat(48, 1fr)',
           gridAutoRows: `${cellSize}px`,
-          gap: '0px',
           position: 'relative',
-          // height:'600 px',
           backgroundImage: effectiveShowGrid
             ? `
-              linear-gradient(to right, rgba(0,0,0,${
-                isDragging ? 0.25 : 0.08
-              }) 1px, transparent 1px),
-              linear-gradient(to bottom, rgba(0,0,0,${
-                isDragging ? 0.25 : 0.08
-              }) 1px, transparent 1px)
+              linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
+              linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px)
             `
             : 'none',
-
           backgroundSize: `${100 / 48}% ${cellSize}px`,
         }}
       >
-        {/* Grid Toggle Button */}
         <button
           onClick={() => setShowGrid((prev) => !prev)}
           style={{
@@ -354,12 +350,28 @@ export default function Canvas() {
         >
           {showGrid ? 'Hide Grid' : 'Show Grid'}
         </button>
-
+        <button
+          onClick={() => {
+            if (blocks.length > 0) {
+              dispatch(
+                updateBlockStyle({
+                  id: blocks[0].id,
+                  style: { backgroundColor: 'pink' },
+                })
+              );
+            }
+          }}
+          style={{
+            position: 'absolute',
+            top: '50px',
+            right: '10px',
+            zIndex: 1000,
+          }}
+        >
+          TEST STYLE
+        </button>
         {blocks.map((block) => (
-          <DraggableBlock
-            key={block.id}
-            block={block}
-          />
+          <DraggableBlock key={block.id} block={block} />
         ))}
       </div>
     </DndContext>
