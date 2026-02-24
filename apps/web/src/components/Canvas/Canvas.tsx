@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../../src/store/hooks';
 import {
   selectBlock,
   removeBlock,
@@ -9,7 +9,7 @@ import {
   updateBlockWidth,
   updateBlockHeight,
   updateBlockDimensions,
-} from '../../store/emailSlice';
+} from '../../../src/store/emailSlice';
 
 import { DndContext, useDraggable } from '@dnd-kit/core';
 
