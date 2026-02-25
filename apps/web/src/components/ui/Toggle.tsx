@@ -2,7 +2,7 @@
 
 import styled from "@emotion/styled";
 import React from "react";
-import { colors, radius, transitions } from "../../styles/tokens";
+import { colors, radius } from "../../styles/tokens";
 
 interface ToggleProps
   extends React.InputHTMLAttributes<HTMLInputElement> {}
@@ -12,12 +12,17 @@ const Switch = styled.label`
   display: inline-block;
   width: 40px;
   height: 20px;
+  cursor: pointer;
 `;
 
 const HiddenCheckbox = styled.input`
   opacity: 0;
   width: 0;
   height: 0;
+
+  &:focus + span {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
 `;
 
 const SliderTrack = styled.span<{ checked?: boolean }>`
@@ -26,7 +31,7 @@ const SliderTrack = styled.span<{ checked?: boolean }>`
   background-color: ${({ checked }) =>
     checked ? colors.primary : colors.neutral[300]};
   border-radius: ${radius.pill};
-  transition: ${transitions.normal};
+  transition: background-color 160ms ease;
 
   display: flex;
   align-items: center;
@@ -40,7 +45,7 @@ const SliderTrack = styled.span<{ checked?: boolean }>`
     border-radius: ${radius.pill};
     transform: ${({ checked }) =>
       checked ? "translateX(20px)" : "translateX(0)"};
-    transition: ${transitions.normal};
+    transition: transform 160ms ease;
   }
 `;
 

@@ -2,7 +2,7 @@
 
 import styled from "@emotion/styled";
 import React from "react";
-import { colors, transitions } from "../../../styles/tokens";
+import { colors } from "../../../styles/tokens";
 
 interface SliderProps
   extends React.InputHTMLAttributes<HTMLInputElement> {}
@@ -14,7 +14,17 @@ const StyledSlider = styled.input`
   border-radius: 999px;
   background: ${colors.neutral[300]};
   outline: none;
-  transition: ${transitions.normal};
+  cursor: pointer;
+
+  transition: background 160ms ease, opacity 160ms ease;
+
+  &:hover {
+    opacity: 0.85;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
 
   &::-webkit-slider-thumb {
     appearance: none;
@@ -23,6 +33,11 @@ const StyledSlider = styled.input`
     border-radius: 50%;
     background: ${colors.primary};
     cursor: pointer;
+    transition: transform 120ms ease;
+  }
+
+  &::-webkit-slider-thumb:active {
+    transform: scale(1.1);
   }
 
   &::-moz-range-thumb {
