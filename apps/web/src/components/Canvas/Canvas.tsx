@@ -1,36 +1,27 @@
-'use client';
+"use client";
 
-import { useState,useEffect } from 'react';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { useState } from "react";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
   selectTarget,
   removeBlock,
   updateBlockPosition,
-  updateBlockWidth,
-  updateBlockHeight,
   updateBlockDimensions,
-  updateBlockStyle,
-  updateCanvasStyle,
-} from '../../store/emailSlice';
+} from "../../store/emailSlice";
 
-import { DndContext, useDraggable } from '@dnd-kit/core';
+import { DndContext, useDraggable } from "@dnd-kit/core";
 
 export default function Canvas() {
   const dispatch = useAppDispatch();
-  const { blocks, selectedTarget ,canvasStyle} = useAppSelector(
+  const { blocks, selectedTarget, canvasStyle } = useAppSelector(
     (state) => state.email
   );
 
-  const [showGrid, setShowGrid] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [cellSize] = useState(20);
 
   const MAX_ROWS = 100;
 
-  const effectiveShowGrid =
-    showGrid ? true : isDragging || isHovering;
-  
   function clamp(value: number, min: number, max: number) {
     return Math.min(Math.max(value, min), max);
   }
@@ -38,11 +29,10 @@ export default function Canvas() {
   const handleDragEnd = (event: any) => {
     const { active, delta } = event;
 
-    console.log("Drag ended", active.id);
     const block = blocks.find((b) => b.id === active.id);
     if (!block) return;
 
-    const gridElement = document.getElementById('canvas-grid');
+    const gridElement = document.getElementById("canvas-grid");
     if (!gridElement) return;
 
     const cellWidth = gridElement.clientWidth / 48;
@@ -73,19 +63,11 @@ export default function Canvas() {
 
   function DraggableBlock({ block }: { block: any }) {
     const { attributes, listeners, setNodeRef, transform } =
-      useDraggable({
-        id: block.id,
-      });
+      useDraggable({ id: block.id });
 
-    type ResizeDir =
-      | 'right'
-      | 'left'
-      | 'bottom'
-      | 'top'
-      | 'top-left'
-      | 'top-right'
-      | 'bottom-left'
-      | 'bottom-right';
+    const isSelected =
+      selectedTarget?.type === "block" &&
+      selectedTarget.id === block.id;
 
     const style = {
       transform: transform
@@ -96,47 +78,62 @@ export default function Canvas() {
       gridRow: `${block.layout.rowStart} / span ${block.layout.rowSpan}`,
 
       background: block.style.backgroundColor,
-      padding: '10px',
-
-      border:
-        selectedTarget?.type === 'block' &&
-        selectedTarget.id === block.id
-          ? `2px solid blue`
-          : `${block.style.border.width}px solid ${block.style.border.color}`,
-
+      padding: "10px",
+      border: `${block.style.border.width}px solid ${block.style.border.color}`,
       borderRadius: `${block.style.border.radius}px`,
       opacity: block.style.opacity,
-      
-      cursor: 'grab',
-      position: 'relative' as const,
+
+      cursor: "grab",
+      position: "relative" as const,
+
+      boxShadow: isSelected
+        ? "0 0 0 2px #3b82f6, 0 8px 20px rgba(59,130,246,0.25)"
+        : "0 2px 6px rgba(0,0,0,0.06)",
+
+      transition:
+        "box-shadow 0.2s ease, border 0.2s ease, background 0.2s ease, opacity 0.2s ease",
     };
+
+    type ResizeDir =
+      | "right"
+      | "left"
+      | "bottom"
+      | "top"
+      | "top-left"
+      | "top-right"
+      | "bottom-left"
+      | "bottom-right";
 
     const handleStyle = (position: string) => {
       const base = {
-        position: 'absolute' as const,
-        width: '10px',
-        height: '10px',
-        background: 'white',
-        border: '2px solid blue',
+        position: "absolute" as const,
+        width: "12px",
+        height: "12px",
+        background: "#ffffff",
+        border: "2px solid #3b82f6",
+        borderRadius: "4px",
         zIndex: 10,
+        boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+        transition: "all 0.15s ease",
       };
+
       switch (position) {
-        case 'top':
-          return { ...base, top: '-5px', left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
-        case 'bottom':
-          return { ...base, bottom: '-5px', left: '50%', transform: 'translateX(-50%)', cursor: 'ns-resize' };
-        case 'left':
-          return { ...base, left: '-5px', top: '50%', transform: 'translateY(-50%)', cursor: 'ew-resize' };
-        case 'right':
-          return { ...base, right: '-5px', top: '50%', transform: 'translateY(-50%)', cursor: 'ew-resize' };
-        case 'top-left':
-          return { ...base, top: '-5px', left: '-5px', cursor: 'nwse-resize' };
-        case 'top-right':
-          return { ...base, top: '-5px', right: '-5px', cursor: 'nesw-resize' };
-        case 'bottom-left':
-          return { ...base, bottom: '-5px', left: '-5px', cursor: 'nesw-resize' };
-        case 'bottom-right':
-          return { ...base, bottom: '-5px', right: '-5px', cursor: 'nwse-resize' };
+        case "top":
+          return { ...base, top: "-6px", left: "50%", transform: "translateX(-50%)", cursor: "ns-resize" };
+        case "bottom":
+          return { ...base, bottom: "-6px", left: "50%", transform: "translateX(-50%)", cursor: "ns-resize" };
+        case "left":
+          return { ...base, left: "-6px", top: "50%", transform: "translateY(-50%)", cursor: "ew-resize" };
+        case "right":
+          return { ...base, right: "-6px", top: "50%", transform: "translateY(-50%)", cursor: "ew-resize" };
+        case "top-left":
+          return { ...base, top: "-6px", left: "-6px", cursor: "nwse-resize" };
+        case "top-right":
+          return { ...base, top: "-6px", right: "-6px", cursor: "nesw-resize" };
+        case "bottom-left":
+          return { ...base, bottom: "-6px", left: "-6px", cursor: "nesw-resize" };
+        case "bottom-right":
+          return { ...base, bottom: "-6px", right: "-6px", cursor: "nwse-resize" };
         default:
           return base;
       }
@@ -154,7 +151,7 @@ export default function Canvas() {
       const startColStart = block.layout.colStart;
       const startRowStart = block.layout.rowStart;
 
-      const gridElement = document.getElementById('canvas-grid');
+      const gridElement = document.getElementById("canvas-grid");
       if (!gridElement) return;
 
       const cellWidth = gridElement.clientWidth / 48;
@@ -164,35 +161,25 @@ export default function Canvas() {
         const deltaX = moveEvent.clientX - startX;
         const deltaY = moveEvent.clientY - startY;
 
-        const colChange =
-          deltaX >= 0
-            ? Math.floor(deltaX / cellWidth)
-            : Math.ceil(deltaX / cellWidth);
-
-        const rowChange =
-          deltaY >= 0
-            ? Math.floor(deltaY / rowHeight)
-            : Math.ceil(deltaY / rowHeight);
+        const colChange = Math.round(deltaX / cellWidth);
+        const rowChange = Math.round(deltaY / rowHeight);
 
         let newColSpan = startColSpan;
         let newRowSpan = startRowSpan;
         let newColStart = startColStart;
         let newRowStart = startRowStart;
 
-        if (direction.includes('right')) {
+        if (direction.includes("right")) {
           newColSpan = Math.max(1, startColSpan + colChange);
         }
-
-        if (direction.includes('left')) {
+        if (direction.includes("left")) {
           newColSpan = Math.max(1, startColSpan - colChange);
           newColStart = startColStart + colChange;
         }
-
-        if (direction.includes('bottom')) {
+        if (direction.includes("bottom")) {
           newRowSpan = Math.max(1, startRowSpan + rowChange);
         }
-
-        if (direction.includes('top')) {
+        if (direction.includes("top")) {
           newRowSpan = Math.max(1, startRowSpan - rowChange);
           newRowStart = startRowStart + rowChange;
         }
@@ -201,15 +188,6 @@ export default function Canvas() {
         if (newColStart + newColSpan - 1 > 48) return;
         if (newRowStart < 1) return;
         if (newRowStart + newRowSpan - 1 > MAX_ROWS) return;
-
-        if (
-          newColSpan === block.layout.colSpan &&
-          newRowSpan === block.layout.rowSpan &&
-          newColStart === block.layout.colStart &&
-          newRowStart === block.layout.rowStart
-        ) {
-          return;
-        }
 
         dispatch(
           updateBlockDimensions({
@@ -223,12 +201,12 @@ export default function Canvas() {
       };
 
       const onMouseUp = () => {
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
       };
 
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
     };
 
     return (
@@ -237,41 +215,39 @@ export default function Canvas() {
         style={style}
         onClick={(e) => {
           e.stopPropagation();
-
-          if (
-            selectedTarget?.type === 'block' &&
-            selectedTarget.id === block.id
-          ) {
+          if (isSelected) {
             dispatch(selectTarget(null));
           } else {
-            dispatch(selectTarget({ type: 'block', id: block.id }));
+            dispatch(selectTarget({ type: "block", id: block.id }));
           }
         }}
       >
-        {selectedTarget?.type === 'block' &&
-          selectedTarget.id === block.id && (
-            <>
-              <div style={handleStyle('right')} onMouseDown={(e) => startResize(e, 'right')} />
-              <div style={handleStyle('left')} onMouseDown={(e) => startResize(e, 'left')} />
-              <div style={handleStyle('bottom')} onMouseDown={(e) => startResize(e, 'bottom')} />
-              <div style={handleStyle('top')} onMouseDown={(e) => startResize(e, 'top')} />
-              <div style={handleStyle('top-left')} onMouseDown={(e) => startResize(e, 'top-left')} />
-              <div style={handleStyle('top-right')} onMouseDown={(e) => startResize(e, 'top-right')} />
-              <div style={handleStyle('bottom-left')} onMouseDown={(e) => startResize(e, 'bottom-left')} />
-              <div style={handleStyle('bottom-right')} onMouseDown={(e) => startResize(e, 'bottom-right')} />
-            </>
-          )}
+        {isSelected &&
+          ["right","left","bottom","top","top-left","top-right","bottom-left","bottom-right"].map((pos) => (
+            <div
+              key={pos}
+              style={handleStyle(pos)}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.boxShadow =
+                  "0 0 0 3px rgba(59,130,246,0.25)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.boxShadow =
+                  "0 2px 6px rgba(0,0,0,0.15)";
+              }}
+              onMouseDown={(e) => startResize(e, pos as ResizeDir)}
+            />
+          ))}
 
-        <div
-          {...listeners}
-          {...attributes}
+        <div {...listeners} {...attributes}
           style={{
-            cursor: 'grab',
-            background: '#eee',
-            padding: '4px',
-            marginBottom: '6px',
-            fontSize: '12px',
-            textAlign: 'center',
+            cursor: "grab",
+            background: "#f3f4f6",
+            padding: "4px",
+            marginBottom: "6px",
+            fontSize: "12px",
+            textAlign: "center",
+            borderRadius: "4px",
           }}
         >
           Drag
@@ -283,14 +259,15 @@ export default function Canvas() {
             dispatch(removeBlock(block.id));
           }}
           style={{
-            position: 'absolute',
-            top: '5px',
-            right: '5px',
-            background: 'red',
-            color: 'white',
-            border: 'none',
-            padding: '3px 6px',
-            cursor: 'pointer',
+            position: "absolute",
+            top: "6px",
+            right: "6px",
+            background: "#ef4444",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            padding: "4px 6px",
+            cursor: "pointer",
           }}
         >
           X
@@ -302,6 +279,9 @@ export default function Canvas() {
     );
   }
 
+  const isCanvasSelected =
+    selectedTarget?.type === "canvas";
+
   return (
     <DndContext
       onDragStart={() => setIsDragging(true)}
@@ -312,64 +292,26 @@ export default function Canvas() {
     >
       <div
         id="canvas-grid"
-        onClick={() => dispatch(selectTarget(null))}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
+        onClick={() =>
+          dispatch(selectTarget({ type: "canvas" }))
+        }
         style={{
           flex: 1,
           backgroundColor: canvasStyle.backgroundColor,
           opacity: canvasStyle.opacity,
           border: `${canvasStyle.border.width}px solid ${canvasStyle.border.color}`,
           borderRadius: `${canvasStyle.border.radius}px`,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(48, 1fr)',
+          display: "grid",
+          gridTemplateColumns: "repeat(48, 1fr)",
           gridAutoRows: `${cellSize}px`,
-          position: 'relative',
-          backgroundImage: effectiveShowGrid
-            ? `
-              linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
-              linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px)
-            `
-            : 'none',
-          backgroundSize: `${100 / 48}% ${cellSize}px`,
+          position: "relative",
+          boxShadow: isCanvasSelected
+            ? "0 0 0 2px #3b82f6 inset"
+            : "none",
+          transition:
+            "box-shadow 0.2s ease, border 0.2s ease, background 0.2s ease",
         }}
       >
-        <button
-          onClick={() => setShowGrid((prev) => !prev)}
-          style={{
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            zIndex: 1000,
-            padding: '6px 10px',
-            background: '#222',
-            color: 'white',
-            border: '1px solid #555',
-            cursor: 'pointer',
-          }}
-        >
-          {showGrid ? 'Hide Grid' : 'Show Grid'}
-        </button>
-        <button
-          onClick={() => {
-            if (blocks.length > 0) {
-              dispatch(
-                updateBlockStyle({
-                  id: blocks[0].id,
-                  style: { backgroundColor: 'pink' },
-                })
-              );
-            }
-          }}
-          style={{
-            position: 'absolute',
-            top: '50px',
-            right: '10px',
-            zIndex: 1000,
-          }}
-        >
-          TEST STYLE
-        </button>
         {blocks.map((block) => (
           <DraggableBlock key={block.id} block={block} />
         ))}
