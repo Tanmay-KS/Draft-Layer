@@ -2,7 +2,7 @@
 
 import styled from "@emotion/styled";
 import React from "react";
-import { colors, radius, transitions } from "../../../styles/tokens";
+import { colors, radius } from "../../styles/tokens";
 
 interface ToggleProps
   extends React.InputHTMLAttributes<HTMLInputElement> {}
@@ -12,49 +12,51 @@ const Switch = styled.label`
   display: inline-block;
   width: 40px;
   height: 20px;
+  cursor: pointer;
 `;
 
 const HiddenCheckbox = styled.input`
   opacity: 0;
   width: 0;
   height: 0;
+
+  &:focus + span {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
 `;
 
-const Slider = styled.span`
+const SliderTrack = styled.span<{ checked?: boolean }>`
   position: absolute;
   inset: 0;
-  background-color: ${colors.neutral[300]};
+  background-color: ${({ checked }) =>
+    checked ? colors.primary : colors.neutral[300]};
   border-radius: ${radius.pill};
-  transition: ${transitions.normal};
+  transition: background-color 160ms ease;
 
-  &:before {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+
+  &::before {
     content: "";
-    position: absolute;
     height: 16px;
     width: 16px;
-    left: 2px;
-    top: 2px;
-    background-color: white;
+    background: white;
     border-radius: ${radius.pill};
-    transition: ${transitions.normal};
+    transform: ${({ checked }) =>
+      checked ? "translateX(20px)" : "translateX(0)"};
+    transition: transform 160ms ease;
   }
 `;
 
-const StyledCheckbox = styled(HiddenCheckbox)`
-  &:checked + ${Slider} {
-    background-color: ${colors.primary};
-  }
-
-  &:checked + ${Slider}::before {
-    transform: translateX(20px);
-  }
-`;
-
-export const Toggle: React.FC<ToggleProps> = ({ ...props }) => {
+export const Toggle: React.FC<ToggleProps> = ({
+  checked,
+  ...props
+}) => {
   return (
     <Switch>
-      <StyledCheckbox type="checkbox" {...props} />
-      <Slider />
+      <HiddenCheckbox type="checkbox" checked={checked} {...props} />
+      <SliderTrack checked={checked} />
     </Switch>
   );
 };

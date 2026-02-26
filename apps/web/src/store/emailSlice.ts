@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { EmailState, EmailBlock, BlockStyle } from './types';
+
 const defaultCanvasStyle: BlockStyle = {
   backgroundColor: '#f8f9fa',
   border: {
@@ -10,10 +11,22 @@ const defaultCanvasStyle: BlockStyle = {
   shadow: 'none',
   opacity: 1,
 };
+
+const defaultBlockStyle: BlockStyle = {
+  backgroundColor: '#ffffff',
+  border: {
+    width: 1,
+    color: '#dddddd',
+    radius: 4,
+  },
+  shadow: 'none',
+  opacity: 1,
+};
+
 const initialState: EmailState = {
   blocks: [],
   selectedTarget: null,
-  canvasStyle: defaultCanvasStyle,  
+  canvasStyle: defaultCanvasStyle,
 };
 
 function isOverlapping(a: EmailBlock, b: EmailBlock) {
@@ -34,22 +47,10 @@ function isOverlapping(a: EmailBlock, b: EmailBlock) {
   return horizontalOverlap && verticalOverlap;
 }
 
-const defaultBlockStyle: BlockStyle = {
-  backgroundColor: '#ffffff',
-  border: {
-    width: 1,
-    color: '#dddddd',
-    radius: 4,
-  },
-  shadow: 'none',
-  opacity: 1,
-};
-
 const emailSlice = createSlice({
   name: 'email',
   initialState,
   reducers: {
-
     addBlock: (
       state,
       action: PayloadAction<{
@@ -66,7 +67,6 @@ const emailSlice = createSlice({
         };
       }>
     ) => {
-
       const newBlock: EmailBlock = {
         id: action.payload.id,
         type: action.payload.type,
@@ -77,7 +77,6 @@ const emailSlice = createSlice({
 
       const maxCols = 48;
       const maxRows = 100;
-
       let placed = false;
 
       for (let row = 1; row <= maxRows && !placed; row++) {
@@ -86,7 +85,6 @@ const emailSlice = createSlice({
           col <= maxCols - newBlock.layout.colSpan + 1;
           col++
         ) {
-
           const proposed: EmailBlock = {
             ...newBlock,
             layout: {
@@ -129,10 +127,9 @@ const emailSlice = createSlice({
 
     selectTarget: (
       state,
-      action: PayloadAction<{
-        type: 'block' | 'canvas';
-        id?: string;
-      } | null>
+      action: PayloadAction<
+        { type: 'block' | 'canvas'; id?: string } | null
+      >
     ) => {
       state.selectedTarget = action.payload;
     },
@@ -161,45 +158,6 @@ const emailSlice = createSlice({
       }
     },
 
-    updateBlockStyle: (
-      state,
-      action: PayloadAction<{
-        id: string;
-        style: Partial<BlockStyle>;
-      }>
-    ) => {
-      const block = state.blocks.find(
-        (b) => b.id === action.payload.id
-      );
-
-      if (!block) return;
-
-      const newStyle = action.payload.style;
-
-      // Merge backgroundColor
-      if (newStyle.backgroundColor !== undefined) {
-        block.style.backgroundColor = newStyle.backgroundColor;
-      }
-
-      // Merge opacity
-      if (newStyle.opacity !== undefined) {
-        block.style.opacity = newStyle.opacity;
-      }
-
-      // Merge shadow
-      if (newStyle.shadow !== undefined) {
-        block.style.shadow = newStyle.shadow;
-      }
-
-      // Merge border deeply
-      if (newStyle.border) {
-        block.style.border = {
-          ...block.style.border,
-          ...newStyle.border,
-        };
-      }
-    },
-
     updateBlockHeight: (
       state,
       action: PayloadAction<{ id: string; rowSpan: number }>
@@ -223,7 +181,6 @@ const emailSlice = createSlice({
       const block = state.blocks.find(
         (block) => block.id === action.payload.id
       );
-
       if (!block) return;
 
       const proposed: EmailBlock = {
@@ -239,10 +196,44 @@ const emailSlice = createSlice({
         if (other.id === block.id) return false;
         return isOverlapping(proposed, other);
       });
-      console.log("Collision?", hasCollision);
+
       if (!hasCollision) {
         block.layout.colStart = action.payload.colStart;
         block.layout.rowStart = action.payload.rowStart;
+      }
+    },
+
+    updateBlockStyle: (
+      state,
+      action: PayloadAction<{
+        id: string;
+        style: Partial<BlockStyle>;
+      }>
+    ) => {
+      const block = state.blocks.find(
+        (b) => b.id === action.payload.id
+      );
+      if (!block) return;
+
+      const newStyle = action.payload.style;
+
+      if (newStyle.backgroundColor !== undefined) {
+        block.style.backgroundColor = newStyle.backgroundColor;
+      }
+
+      if (newStyle.opacity !== undefined) {
+        block.style.opacity = newStyle.opacity;
+      }
+
+      if (newStyle.shadow !== undefined) {
+        block.style.shadow = newStyle.shadow;
+      }
+
+      if (newStyle.border) {
+        block.style.border = {
+          ...block.style.border,
+          ...newStyle.border,
+        };
       }
     },
 
@@ -253,7 +244,8 @@ const emailSlice = createSlice({
       const newStyle = action.payload;
 
       if (newStyle.backgroundColor !== undefined) {
-        state.canvasStyle.backgroundColor = newStyle.backgroundColor;
+        state.canvasStyle.backgroundColor =
+          newStyle.backgroundColor;
       }
 
       if (newStyle.opacity !== undefined) {
@@ -285,7 +277,6 @@ const emailSlice = createSlice({
       const block = state.blocks.find(
         (b) => b.id === action.payload.id
       );
-
       if (!block) return;
 
       block.layout.colSpan = action.payload.colSpan;
