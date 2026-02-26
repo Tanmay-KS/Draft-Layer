@@ -1,6 +1,7 @@
 "use client";
 
 import styled from "@emotion/styled";
+import React, { useState } from "react";
 import { spacing, colors } from "../../styles/tokens";
 
 import { Label } from "../ui/Label";
@@ -50,7 +51,6 @@ export default function Inspector() {
   const { blocks, selectedTarget, canvasStyle } = useAppSelector(
     (state) => state.email
   );
-
   const selectedBlock =
     selectedTarget?.type === "block"
       ? blocks.find((block) => block.id === selectedTarget.id)
@@ -272,12 +272,45 @@ export default function Inspector() {
           }
         />
       </InspectorSection>
-
       <InspectorSection title="Typography">
-        <Label>Font Size</Label>
-        <Slider />
-        <Label>Bold</Label>
-        <Toggle />
+        {selectedBlock && (
+          <>
+            <Label>Font Size</Label>
+            <Slider
+              value={selectedBlock.style.fontSize || 16}
+              min={8}
+              max={72}
+              onChange={(e) =>
+                dispatch(
+                  updateBlockStyle({
+                    id: selectedBlock.id,
+                    style: {
+                      fontSize: Number(e.target.value),
+                    },
+                  })
+                )
+              }
+            />
+
+            <Label>Bold</Label>
+            <Toggle
+              checked={selectedBlock.style.fontWeight === "bold"}
+              onChange={() =>
+                dispatch(
+                  updateBlockStyle({
+                    id: selectedBlock.id,
+                    style: {
+                      fontWeight:
+                        selectedBlock.style.fontWeight === "bold"
+                          ? "normal" // ✅ This is the fixed toggle logic!
+                          : "bold",
+                    },
+                  })
+                )
+              }
+            />
+          </>
+        )}
       </InspectorSection>
     </Wrapper>
   );

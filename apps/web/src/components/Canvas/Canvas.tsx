@@ -114,6 +114,12 @@ export default function Canvas() {
         : "0 2px 6px rgba(0,0,0,0.08)",
       transition:
         "box-shadow 180ms ease, border 180ms ease, background-color 180ms ease, opacity 180ms ease",
+      //Typography
+      fontFamily: block.style.fontFamily,
+      fontSize: block.style.fontSize ? `${block.style.fontSize}px` : undefined,
+      fontWeight: block.style.fontWeight,
+      textAlign: block.style.textAlign,
+      color: block.style.color,
     };
 
     type ResizeDir =
@@ -175,7 +181,7 @@ export default function Canvas() {
       if (!gridElement) return;
 
       const cellWidth = gridElement.clientWidth / 48;
-      const rowHeight = cellSize;
+      const rowHeight = cellSize*2;
 
       const onMouseMove = (moveEvent: MouseEvent) => {
         const deltaX = moveEvent.clientX - startX;
@@ -298,9 +304,11 @@ export default function Canvas() {
           onMouseEnter={() => setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}
           style={{
-            minHeight: `${visualRows * cellSize}px`,
+            minHeight: `${visualRows * cellSize*2}px`,
             backgroundColor: canvasStyle.backgroundColor,
-            border: `${canvasStyle.border.width}px solid ${canvasStyle.border.color}`,
+            border: canvasStyle.border
+              ? `${canvasStyle.border.width || 0}px solid ${canvasStyle.border.color || 'transparent'}`
+              : 'none',
             borderRadius: `${canvasStyle.border.radius}px`,
             display: "grid",
             gridTemplateColumns: "repeat(48, 1fr)",

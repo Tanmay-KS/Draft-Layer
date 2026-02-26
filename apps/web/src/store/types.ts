@@ -7,6 +7,12 @@ export interface BlockStyle {
   };
   shadow: string;
   opacity: number;
+  //Typography
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: number | string;
+  textAlign?: 'left' | 'center' | 'right';
+  color?: string;
 }
 
 export interface EmailBlock {

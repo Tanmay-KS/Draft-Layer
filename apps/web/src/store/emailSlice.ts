@@ -234,6 +234,26 @@ const emailSlice = createSlice({
           ...block.style.border,
           ...newStyle.border,
         };
+      } // ✅ This is the fixed closing bracket!
+
+      if (newStyle.fontWeight !== undefined) {
+        block.style.fontWeight = newStyle.fontWeight;
+      }
+
+      if (newStyle.fontSize !== undefined) {
+        block.style.fontSize = newStyle.fontSize;
+      }
+
+      if (newStyle.fontFamily !== undefined) {
+        block.style.fontFamily = newStyle.fontFamily;
+      }
+
+      if (newStyle.textAlign !== undefined) {
+        block.style.textAlign = newStyle.textAlign;
+      }
+
+      if (newStyle.color !== undefined) {
+        block.style.color = newStyle.color;
       }
     },
 
