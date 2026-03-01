@@ -2,7 +2,7 @@
 
 import styled from "@emotion/styled";
 import React from "react";
-import { spacing, radius, colors, transitions } from "../../styles/tokens.ts";
+import { spacing, radius, colors, transitions } from "../../../styles/tokens";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary";
