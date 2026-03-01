@@ -27,7 +27,26 @@ const initialState: EmailState = {
   blocks: [],
   selectedTarget: null,
   canvasStyle: defaultCanvasStyle,
+  past: [],
+  future: [],
 };
+
+function snapshotState(state: EmailState) {
+  return {
+    blocks: JSON.parse(JSON.stringify(state.blocks)),
+    selectedTarget: JSON.parse(JSON.stringify(state.selectedTarget)),
+    canvasStyle: JSON.parse(JSON.stringify(state.canvasStyle)),
+  };
+}
+function pushToHistory(state: EmailState) {
+  const snapshot = snapshotState(state);
+  state.past.push(snapshot);
+  state.future = [];
+
+  if (state.past.length > 50) {
+    state.past.shift();
+  }
+}
 
 function isOverlapping(a: EmailBlock, b: EmailBlock) {
   const aColEnd = a.layout.colStart + a.layout.colSpan - 1;
@@ -67,6 +86,7 @@ const emailSlice = createSlice({
         };
       }>
     ) => {
+      pushToHistory(state);
       const newBlock: EmailBlock = {
         id: action.payload.id,
         type: action.payload.type,
@@ -113,6 +133,7 @@ const emailSlice = createSlice({
     },
 
     removeBlock: (state, action: PayloadAction<string>) => {
+      pushToHistory(state);
       state.blocks = state.blocks.filter(
         (block) => block.id !== action.payload
       );
@@ -131,6 +152,7 @@ const emailSlice = createSlice({
         { type: 'block' | 'canvas'; id?: string } | null
       >
     ) => {
+      pushToHistory(state);
       state.selectedTarget = action.payload;
     },
 
@@ -138,6 +160,7 @@ const emailSlice = createSlice({
       state,
       action: PayloadAction<{ id: string; content: string }>
     ) => {
+      pushToHistory(state);
       const block = state.blocks.find(
         (block) => block.id === action.payload.id
       );
@@ -210,57 +233,32 @@ const emailSlice = createSlice({
         style: Partial<BlockStyle>;
       }>
     ) => {
+      pushToHistory(state);
+
       const block = state.blocks.find(
         (b) => b.id === action.payload.id
       );
       if (!block) return;
 
-      const newStyle = action.payload.style;
+      const incomingStyle = action.payload.style;
 
-      if (newStyle.backgroundColor !== undefined) {
-        block.style.backgroundColor = newStyle.backgroundColor;
-      }
-
-      if (newStyle.opacity !== undefined) {
-        block.style.opacity = newStyle.opacity;
-      }
-
-      if (newStyle.shadow !== undefined) {
-        block.style.shadow = newStyle.shadow;
-      }
-
-      if (newStyle.border) {
-        block.style.border = {
-          ...block.style.border,
-          ...newStyle.border,
-        };
-      } // ✅ This is the fixed closing bracket!
-
-      if (newStyle.fontWeight !== undefined) {
-        block.style.fontWeight = newStyle.fontWeight;
-      }
-
-      if (newStyle.fontSize !== undefined) {
-        block.style.fontSize = newStyle.fontSize;
-      }
-
-      if (newStyle.fontFamily !== undefined) {
-        block.style.fontFamily = newStyle.fontFamily;
-      }
-
-      if (newStyle.textAlign !== undefined) {
-        block.style.textAlign = newStyle.textAlign;
-      }
-
-      if (newStyle.color !== undefined) {
-        block.style.color = newStyle.color;
-      }
+      block.style = {
+        ...block.style,
+        ...incomingStyle,
+        border: incomingStyle.border
+          ? {
+              ...block.style.border,
+              ...incomingStyle.border,
+            }
+          : block.style.border,
+      };
     },
 
     updateCanvasStyle: (
       state,
       action: PayloadAction<Partial<BlockStyle>>
     ) => {
+      pushToHistory(state);
       const newStyle = action.payload;
 
       if (newStyle.backgroundColor !== undefined) {
@@ -309,6 +307,7 @@ const emailSlice = createSlice({
       state,
       action: PayloadAction<{ id: string; direction: 'up' | 'down' }>
     ) => {
+      pushToHistory(state);
       const index = state.blocks.findIndex(
         (block) => block.id === action.payload.id
       );
@@ -332,6 +331,34 @@ const emailSlice = createSlice({
         ];
       }
     },
+    undo: (state) => {
+      if (state.past.length === 0) return;
+
+      const previous = state.past.pop();
+      if (!previous) return;
+
+      const current = snapshotState(state);
+
+      state.future.unshift(current);
+
+      state.blocks = previous.blocks;
+      state.selectedTarget = previous.selectedTarget;
+      state.canvasStyle = previous.canvasStyle;
+    },
+    redo: (state) => {
+      if (state.future.length === 0) return;
+
+      const next = state.future.shift();
+      if (!next) return;
+
+      const current = snapshotState(state);
+
+      state.past.push(current);
+
+      state.blocks = next.blocks;
+      state.selectedTarget = next.selectedTarget;
+      state.canvasStyle = next.canvasStyle;
+    },
   },
 });
 
@@ -347,6 +374,8 @@ export const {
   updateBlockDimensions,
   updateBlockStyle,
   updateCanvasStyle,
+  undo,
+  redo,
 } = emailSlice.actions;
 
 export default emailSlice.reducer;
