@@ -18,6 +18,8 @@ import {
   updateBlockHeight,
   updateBlockStyle,
   updateCanvasStyle,
+  undo,
+  redo,
 } from "../../store/emailSlice";
 
 const Wrapper = styled.div`
@@ -143,7 +145,20 @@ export default function Inspector() {
       <Title active={selectedTarget?.type === "block"}>
         Inspector
       </Title>
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button
+          onClick={() => {
+            console.log("UNDO CLICKED");
+            dispatch(undo());
+          }}
+        >
+          Undo
+        </button>
 
+        <button onClick={() => dispatch(redo())}>
+          Redo
+        </button>
+      </div>
       {selectedBlock && (
         <InspectorSection title="Layout">
           <Label>Content</Label>

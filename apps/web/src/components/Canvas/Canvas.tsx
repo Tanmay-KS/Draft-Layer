@@ -61,10 +61,10 @@ export default function Canvas() {
     const rowHeight = cellSize;
 
     const newCol =
-      block.layout.colStart + Math.round(delta.x / cellWidth);
+      block.layout.colStart + Math.floor(delta.x / cellWidth);
 
     const newRow =
-      block.layout.rowStart + Math.round(delta.y / rowHeight);
+      block.layout.rowStart + Math.ceil(delta.y / rowHeight);
 
     dispatch(
       updateBlockPosition({
@@ -187,8 +187,15 @@ export default function Canvas() {
         const deltaX = moveEvent.clientX - startX;
         const deltaY = moveEvent.clientY - startY;
 
-        const colChange = Math.round(deltaX / cellWidth);
-        const rowChange = Math.round(deltaY / rowHeight);
+        const colChange =
+          deltaX >= 0
+            ? Math.floor(deltaX / cellWidth)
+            : Math.ceil(deltaX / cellWidth);
+
+        const rowChange =
+          deltaY >= 0
+            ? Math.floor(deltaY / rowHeight)
+            : Math.ceil(deltaY / rowHeight);
 
         let newColSpan = startColSpan;
         let newRowSpan = startRowSpan;

@@ -39,4 +39,6 @@ export interface EmailState {
     id?: string;
   } | null;
   canvasStyle: BlockStyle;
+  past: Omit<EmailState, 'past' | 'future'>[];
+  future: Omit<EmailState, 'past' | 'future'>[];
 }
