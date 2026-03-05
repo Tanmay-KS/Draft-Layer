@@ -41,4 +41,5 @@ export interface EmailState {
   canvasStyle: BlockStyle;
   past: Omit<EmailState, 'past' | 'future'>[];
   future: Omit<EmailState, 'past' | 'future'>[];
+  selectedBlockIds: string[];
 }
