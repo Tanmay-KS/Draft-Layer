@@ -1,12 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from 'react-redux'; 
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
   selectTarget,
   removeBlock,
   updateBlockPosition,
   updateBlockDimensions,
+  addBlock,
+  setSelectedBlocks,
+  toggleBlockSelection,
+  clearSelection,
+  moveSelectedBlocks,
+  removeSelectedBlocks,
 } from "../../store/emailSlice";
 
 import { DndContext, useDraggable } from "@dnd-kit/core";
@@ -14,31 +21,196 @@ import { CSS } from "@dnd-kit/utilities";
 
 export default function Canvas() {
   const dispatch = useAppDispatch();
-  const { blocks, selectedTarget, canvasStyle } = useAppSelector(
+  
+  // MODIFIED: Added selectedBlockIds to your existing useAppSelector to avoid TypeScript errors
+  const { blocks, selectedTarget, canvasStyle, selectedBlockIds } = useAppSelector(
     (state) => state.email
   );
 
+  // Handle clicking the empty canvas
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      dispatch(clearSelection());
+    }
+  };
+
+  // Handle clicking an individual block
+  const handleBlockClick = (e: React.MouseEvent, blockId: string) => {
+    e.stopPropagation(); // Prevent canvas click from firing
+    
+    if (e.shiftKey) {
+      dispatch(toggleBlockSelection(blockId));
+    } else {
+      dispatch(setSelectedBlocks([blockId]));
+    }
+  };
+
   const [showGrid, setShowGrid] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  
+  const selectedBlock = selectedTarget?.type === "block"
+    ? blocks.find((block) => block.id === selectedTarget.id)
+    : null;
 
-  // ✅ ESC deselect (UI only)
+  // useEffect(() => {
+  //   const handleKeyDown = (e: KeyboardEvent) => {
+  //     // 1. ESC - Deselect
+  //     if (e.key === "Escape") {
+  //       dispatch(selectTarget(null));
+  //       return;
+  //     }
+
+  //     // 2. Only move if a block is actually selected
+  //     if (!selectedTarget || selectedTarget.type !== "block" || !selectedBlock) return;
+
+  //     // 3. Delete Logic
+  //     if (e.key === "Delete") {
+  //       dispatch(removeBlock(selectedTarget.id!));
+  //       return;
+  //     }
+
+  //     const step = e.shiftKey ? 5 : 1;
+  //     let newCol = selectedBlock.layout.colStart;
+  //     let newRow = selectedBlock.layout.rowStart;
+
+  //     if (
+  //       (e.ctrlKey || e.metaKey) &&
+  //       e.key.toLowerCase() === "d"
+  //     ) {
+  //       e.preventDefault();
+
+  //       if (!selectedTarget || selectedTarget.type !== "block") return;
+
+  //       const block = selectedBlock;
+  //       if (!block) return;
+
+  //       const newId = crypto.randomUUID();
+
+  //       dispatch(
+  //         addBlock({
+  //           id: newId,
+  //           type: block.type,
+  //           layout: {
+  //             ...block.layout,
+  //             colStart: block.layout.colStart + 1,
+  //             rowStart: block.layout.rowStart + 1,
+  //           },
+  //           content: {
+  //             ...block.content,
+  //           },
+  //           style: block.style,
+  //         })
+  //       );
+
+  //       return;
+  //     }
+
+  //     // 4. Movement Logic with Boundary Clamping
+  //     if (e.key === "ArrowLeft") {
+  //       e.preventDefault();
+  //       newCol = Math.max(1, selectedBlock.layout.colStart - step);
+  //     }
+
+  //     if (e.key === "ArrowRight") {
+  //       e.preventDefault();
+  //       const maxColStart = 48 - selectedBlock.layout.colSpan + 1;
+  //       newCol = Math.min(maxColStart, selectedBlock.layout.colStart + step);
+  //     }
+
+  //     if (e.key === "ArrowUp") {
+  //       e.preventDefault();
+  //       newRow = Math.max(1, selectedBlock.layout.rowStart - step);
+  //     }
+
+  //     if (e.key === "ArrowDown") {
+  //       e.preventDefault();
+  //       const maxRowStart = MAX_ROWS - selectedBlock.layout.rowSpan + 1;
+  //       newRow = Math.min(maxRowStart, selectedBlock.layout.rowStart + step);
+  //     }
+
+  //     // 5. Only dispatch if the values actually changed
+  //     if (
+  //       newCol !== selectedBlock.layout.colStart ||
+  //       newRow !== selectedBlock.layout.rowStart
+  //     ) {
+  //       dispatch(
+  //         updateBlockPosition({
+  //           id: selectedBlock.id,
+  //           colStart: newCol,
+  //           rowStart: newRow,
+  //         })
+  //       );
+  //     }
+  //   };
+
+  //   window.addEventListener("keydown", handleKeyDown);
+  //   return () => window.removeEventListener("keydown", handleKeyDown);
+  // }, [dispatch, selectedTarget, selectedBlock]); 
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        dispatch(selectTarget(null));
+        dispatch(clearSelection());
+        return;
+      }
+
+      if (selectedBlockIds.length === 0) return;
+
+      // Bulk Delete (1 clean dispatch)
+      if (e.key === "Delete" || e.key === "Backspace") {
+        dispatch(removeSelectedBlocks());
+        return;
+      }
+
+      // Bulk Duplicate (Ctrl+D) - We keep this loop here because we need random UUIDs
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        selectedBlockIds.forEach(id => {
+          const block = blocks.find(b => b.id === id);
+          if (!block) return;
+          const newId = crypto.randomUUID();
+          dispatch(
+            addBlock({
+              id: newId,
+              type: block.type,
+              layout: {
+                ...block.layout,
+                colStart: block.layout.colStart + 1,
+                rowStart: block.layout.rowStart + 1,
+              },
+              content: { ...block.content },
+              style: block.style,
+            })
+          );
+        });
+        return;
+      }
+
+      // Bulk Move (1 clean dispatch)
+      const step = e.shiftKey ? 5 : 1;
+      let colChange = 0;
+      let rowChange = 0;
+
+      if (e.key === "ArrowLeft") colChange = -step;
+      if (e.key === "ArrowRight") colChange = step;
+      if (e.key === "ArrowUp") rowChange = -step;
+      if (e.key === "ArrowDown") rowChange = step;
+
+      if (colChange !== 0 || rowChange !== 0) {
+        e.preventDefault();
+        dispatch(moveSelectedBlocks({ colChange, rowChange }));
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dispatch]);
-
+  }, [dispatch, selectedBlockIds, blocks]);
+  
   const cellSize = 20;
   const MAX_ROWS = 100;
 
   const maxUsedRow = blocks.reduce((max, block) => {
-    const end =
-      block.layout.rowStart + block.layout.rowSpan - 1;
+    const end = block.layout.rowStart + block.layout.rowSpan - 1;
     return Math.max(max, end);
   }, 0);
 
@@ -60,27 +232,29 @@ export default function Canvas() {
     const cellWidth = gridElement.clientWidth / 48;
     const rowHeight = cellSize;
 
-    const newCol =
-      block.layout.colStart + Math.floor(delta.x / cellWidth);
+    // 1. Calculate how many grid cells the mouse moved
+    const colChange = Math.floor(delta.x / cellWidth);
+    const rowChange = Math.ceil(delta.y / rowHeight);
 
-    const newRow =
-      block.layout.rowStart + Math.ceil(delta.y / rowHeight);
+    if (colChange === 0 && rowChange === 0) return;
 
-    dispatch(
-      updateBlockPosition({
-        id: block.id,
-        colStart: clamp(
-          newCol,
-          1,
-          48 - block.layout.colSpan + 1
-        ),
-        rowStart: clamp(
-          newRow,
-          1,
-          MAX_ROWS - block.layout.rowSpan + 1
-        ),
-      })
-    );
+    // 2. MULTI-DRAG: If the dragged block is part of our selected group, move them all!
+    if (selectedBlockIds.includes(block.id)) {
+      dispatch(moveSelectedBlocks({ colChange, rowChange }));
+    } 
+    // 3. SINGLE DRAG: If they grabbed an unselected block, just move that specific one
+    else {
+      const newCol = block.layout.colStart + colChange;
+      const newRow = block.layout.rowStart + rowChange;
+
+      dispatch(
+        updateBlockPosition({
+          id: block.id,
+          colStart: clamp(newCol, 1, 48 - block.layout.colSpan + 1),
+          rowStart: clamp(newRow, 1, MAX_ROWS - block.layout.rowSpan + 1),
+        })
+      );
+    }
   };
 
   function DraggableBlock({ block }: { block: any }) {
@@ -92,9 +266,8 @@ export default function Canvas() {
       isDragging,
     } = useDraggable({ id: block.id });
 
-    const isSelected =
-      selectedTarget?.type === "block" &&
-      selectedTarget.id === block.id;
+    // MODIFIED: Now checks the array to support multi-select borders
+    const isSelected = selectedBlockIds.includes(block.id);
 
     const style = {
       transform: CSS.Transform.toString(transform),
@@ -114,7 +287,6 @@ export default function Canvas() {
         : "0 2px 6px rgba(0,0,0,0.08)",
       transition:
         "box-shadow 180ms ease, border 180ms ease, background-color 180ms ease, opacity 180ms ease",
-      //Typography
       fontFamily: block.style.fontFamily,
       fontSize: block.style.fontSize ? `${block.style.fontSize}px` : undefined,
       fontWeight: block.style.fontWeight,
@@ -181,7 +353,7 @@ export default function Canvas() {
       if (!gridElement) return;
 
       const cellWidth = gridElement.clientWidth / 48;
-      const rowHeight = cellSize*2;
+      const rowHeight = cellSize * 2;
 
       const onMouseMove = (moveEvent: MouseEvent) => {
         const deltaX = moveEvent.clientX - startX;
@@ -243,10 +415,8 @@ export default function Canvas() {
       <div
         ref={setNodeRef}
         style={style}
-        onClick={(e) => {
-          e.stopPropagation();
-          dispatch(selectTarget({ type: "block", id: block.id }));
-        }}
+        // MODIFIED: Replaced selectTarget with the new handleBlockClick function
+        onClick={(e) => handleBlockClick(e, block.id)}
       >
         <div
           {...listeners}
@@ -299,15 +469,15 @@ export default function Canvas() {
     );
   }
 
-  const isCanvasSelected =
-    selectedTarget?.type === "canvas";
+  const isCanvasSelected = selectedTarget?.type === "canvas";
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <div style={{ flex: 1, overflow: "auto", padding: "10px" }}>
         <div
           id="canvas-grid"
-          onClick={() => dispatch(selectTarget({ type: "canvas" }))}
+          // MODIFIED: Uses handleCanvasClick to safely clear selections
+          onClick={handleCanvasClick}
           onMouseEnter={() => setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}
           style={{

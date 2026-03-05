@@ -1,7 +1,7 @@
 "use client";
 
 import styled from "@emotion/styled";
-import React, { useState } from "react";
+import React from "react";
 import { spacing, colors } from "../../styles/tokens";
 
 import { Label } from "../ui/Label";
@@ -9,7 +9,6 @@ import { Input } from "../ui/Inputs";
 import { Toggle } from "../ui/Toggle";
 import { Slider } from "../ui/Slider";
 import { InspectorSection } from "../ui/InspectorSection";
-
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
   updateBlockContent,
@@ -31,7 +30,6 @@ const Wrapper = styled.div`
   gap: ${spacing.lg};
 `;
 
-/* ✨ ACTIVE HEADER STYLE */
 const Title = styled.h3<{ active?: boolean }>`
   margin: 0;
   padding: 8px 10px;
@@ -50,22 +48,15 @@ const Title = styled.h3<{ active?: boolean }>`
 export default function Inspector() {
   const dispatch = useAppDispatch();
 
-  const { blocks, selectedTarget, canvasStyle } = useAppSelector(
+  // FIXED: Pulled selectedBlockIds from here to avoid duplicate selector errors
+  const { blocks, selectedTarget, canvasStyle, selectedBlockIds } = useAppSelector(
     (state) => state.email
   );
+
   const selectedBlock =
     selectedTarget?.type === "block"
       ? blocks.find((block) => block.id === selectedTarget.id)
       : null;
-
-  if (!selectedBlock && selectedTarget?.type !== "canvas") {
-    return (
-      <Wrapper>
-        <Title>Inspector</Title>
-        <p>No block selected</p>
-      </Wrapper>
-    );
-  }
 
   const handleBackgroundChange = (value: string) => {
     if (selectedTarget?.type === "block" && selectedBlock) {
@@ -141,192 +132,206 @@ export default function Inspector() {
 
   return (
     <Wrapper>
-      {/* ✨ ACTIVE PROP ADDED */}
       <Title active={selectedTarget?.type === "block"}>
         Inspector
       </Title>
+
+      {/* Undo / Redo always visible */}
       <div style={{ display: "flex", gap: "8px" }}>
-        <button
-          onClick={() => {
-            console.log("UNDO CLICKED");
-            dispatch(undo());
-          }}
-        >
+        <button onClick={() => dispatch(undo())}>
           Undo
         </button>
-
         <button onClick={() => dispatch(redo())}>
           Redo
         </button>
       </div>
-      {selectedBlock && (
-        <InspectorSection title="Layout">
-          <Label>Content</Label>
-          <Input
-            value={selectedBlock.content.value}
-            onChange={(e) =>
-              dispatch(
-                updateBlockContent({
-                  id: selectedBlock.id,
-                  content: e.target.value,
-                })
-              )
-            }
-          />
 
-          <Label>Width (1–48)</Label>
-          <Slider
-            value={selectedBlock.layout.colSpan}
-            min={1}
-            max={48}
-            onChange={(e) =>
-              dispatch(
-                updateBlockWidth({
-                  id: selectedBlock.id,
-                  colSpan: Number(e.target.value),
-                })
-              )
-            }
-          />
+      {/* FIXED: Check for multi-select here so Undo/Redo buttons stay visible */}
+      {selectedBlockIds && selectedBlockIds.length > 1 ? (
+        <div style={{ padding: "20px 0", textAlign: "center", background: "#f9fafb", borderRadius: "8px" }}>
+          <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>Multiple blocks selected</p>
+          <span style={{ fontSize: "14px", color: "#6b7280" }}>
+            {selectedBlockIds.length} blocks currently active.
+          </span>
+        </div>
+      ) : (
+        <>
+          {/* Nothing selected */}
+          {(!selectedTarget || (selectedTarget.type === "canvas" && selectedBlockIds?.length === 0)) && (
+            <p style={{ fontSize: "14px", color: "#6b7280" }}>Editing Canvas</p>
+          )}
 
-          <Label>Column Start</Label>
-          <Input
-            type="number"
-            value={selectedBlock.layout.colStart}
-            onChange={(e) =>
-              dispatch(
-                updateBlockPosition({
-                  id: selectedBlock.id,
-                  colStart: Number(e.target.value),
-                  rowStart: selectedBlock.layout.rowStart,
-                })
-              )
-            }
-          />
+          {/* Block Selected */}
+          {selectedBlock && (
+            <>
+              <InspectorSection title="Layout">
+                <Label>Content</Label>
+                <Input
+                  value={selectedBlock.content.value}
+                  onChange={(e) =>
+                    dispatch(
+                      updateBlockContent({
+                        id: selectedBlock.id,
+                        content: e.target.value,
+                      })
+                    )
+                  }
+                />
 
-          <Label>Row Start</Label>
-          <Input
-            type="number"
-            value={selectedBlock.layout.rowStart}
-            onChange={(e) =>
-              dispatch(
-                updateBlockPosition({
-                  id: selectedBlock.id,
-                  colStart: selectedBlock.layout.colStart,
-                  rowStart: Number(e.target.value),
-                })
-              )
-            }
-          />
+                <Label>Width (1–48)</Label>
+                <Slider
+                  value={selectedBlock.layout.colSpan}
+                  min={1}
+                  max={48}
+                  onChange={(e) =>
+                    dispatch(
+                      updateBlockWidth({
+                        id: selectedBlock.id,
+                        colSpan: Number(e.target.value),
+                      })
+                    )
+                  }
+                />
 
-          <Label>Height (Row Span)</Label>
-          <Input
-            type="number"
-            value={selectedBlock.layout.rowSpan}
-            onChange={(e) =>
-              dispatch(
-                updateBlockHeight({
-                  id: selectedBlock.id,
-                  rowSpan: Number(e.target.value),
-                })
-              )
-            }
-          />
-        </InspectorSection>
+                <Label>Column Start</Label>
+                <Input
+                  type="number"
+                  value={selectedBlock.layout.colStart}
+                  onChange={(e) =>
+                    dispatch(
+                      updateBlockPosition({
+                        id: selectedBlock.id,
+                        colStart: Number(e.target.value),
+                        rowStart: selectedBlock.layout.rowStart,
+                      })
+                    )
+                  }
+                />
+
+                <Label>Row Start</Label>
+                <Input
+                  type="number"
+                  value={selectedBlock.layout.rowStart}
+                  onChange={(e) =>
+                    dispatch(
+                      updateBlockPosition({
+                        id: selectedBlock.id,
+                        colStart: selectedBlock.layout.colStart,
+                        rowStart: Number(e.target.value),
+                      })
+                    )
+                  }
+                />
+
+                <Label>Height (Row Span)</Label>
+                <Input
+                  type="number"
+                  value={selectedBlock.layout.rowSpan}
+                  onChange={(e) =>
+                    dispatch(
+                      updateBlockHeight({
+                        id: selectedBlock.id,
+                        rowSpan: Number(e.target.value),
+                      })
+                    )
+                  }
+                />
+              </InspectorSection>
+
+              <InspectorSection title="Typography">
+                <Label>Font Size</Label>
+                <Slider
+                  value={selectedBlock.style.fontSize || 16}
+                  min={8}
+                  max={72}
+                  onChange={(e) =>
+                    dispatch(
+                      updateBlockStyle({
+                        id: selectedBlock.id,
+                        style: {
+                          fontSize: Number(e.target.value),
+                        },
+                      })
+                    )
+                  }
+                />
+
+                <Label>Bold</Label>
+                <Toggle
+                  checked={selectedBlock.style.fontWeight === "bold"}
+                  onChange={() =>
+                    dispatch(
+                      updateBlockStyle({
+                        id: selectedBlock.id,
+                        style: {
+                          fontWeight:
+                            selectedBlock.style.fontWeight === "bold"
+                              ? "normal"
+                              : "bold",
+                        },
+                      })
+                    )
+                  }
+                />
+              </InspectorSection>
+            </>
+          )}
+
+          {/* Style Section (Block + Canvas) */}
+          <InspectorSection title="Style">
+            <Label>Background</Label>
+            <Input
+              value={
+                selectedTarget?.type === "canvas"
+                  ? canvasStyle.backgroundColor
+                  : selectedBlock?.style.backgroundColor || ""
+              }
+              onChange={(e) =>
+                handleBackgroundChange(e.target.value)
+              }
+            />
+
+            {selectedBlock && (
+              <>
+                <Label>Border Radius</Label>
+                <Slider
+                  value={selectedBlock.style.border.radius}
+                  min={0}
+                  max={50}
+                  onChange={(e) =>
+                    handleBorderRadiusChange(Number(e.target.value))
+                  }
+                />
+
+                <Label>Border Width</Label>
+                <Slider
+                  value={selectedBlock.style.border.width}
+                  min={0}
+                  max={20}
+                  onChange={(e) =>
+                    handleBorderWidthChange(Number(e.target.value))
+                  }
+                />
+              </>
+            )}
+
+            <Label>Opacity</Label>
+            <Slider
+              value={
+                selectedTarget?.type === "canvas"
+                  ? canvasStyle.opacity
+                  : selectedBlock?.style.opacity || 1
+              }
+              min={0}
+              max={1}
+              step={0.1}
+              onChange={(e) =>
+                handleOpacityChange(Number(e.target.value))
+              }
+            />
+          </InspectorSection>
+        </>
       )}
-
-      <InspectorSection title="Style">
-        <Label>Background</Label>
-        <Input
-          value={
-            selectedTarget?.type === "canvas"
-              ? canvasStyle.backgroundColor
-              : selectedBlock?.style.backgroundColor || ""
-          }
-          onChange={(e) =>
-            handleBackgroundChange(e.target.value)
-          }
-        />
-
-        {selectedTarget?.type === "block" && selectedBlock && (
-          <>
-            <Label>Border Radius</Label>
-            <Slider
-              value={selectedBlock.style.border.radius}
-              min={0}
-              max={50}
-              onChange={(e) =>
-                handleBorderRadiusChange(Number(e.target.value))
-              }
-            />
-
-            <Label>Border Width</Label>
-            <Slider
-              value={selectedBlock.style.border.width}
-              min={0}
-              max={20}
-              onChange={(e) =>
-                handleBorderWidthChange(Number(e.target.value))
-              }
-            />
-          </>
-        )}
-
-        <Label>Opacity</Label>
-        <Slider
-          value={
-            selectedTarget?.type === "canvas"
-              ? canvasStyle.opacity
-              : selectedBlock?.style.opacity || 1
-          }
-          min={0}
-          max={1}
-          step={0.1}
-          onChange={(e) =>
-            handleOpacityChange(Number(e.target.value))
-          }
-        />
-      </InspectorSection>
-      <InspectorSection title="Typography">
-        {selectedBlock && (
-          <>
-            <Label>Font Size</Label>
-            <Slider
-              value={selectedBlock.style.fontSize || 16}
-              min={8}
-              max={72}
-              onChange={(e) =>
-                dispatch(
-                  updateBlockStyle({
-                    id: selectedBlock.id,
-                    style: {
-                      fontSize: Number(e.target.value),
-                    },
-                  })
-                )
-              }
-            />
-
-            <Label>Bold</Label>
-            <Toggle
-              checked={selectedBlock.style.fontWeight === "bold"}
-              onChange={() =>
-                dispatch(
-                  updateBlockStyle({
-                    id: selectedBlock.id,
-                    style: {
-                      fontWeight:
-                        selectedBlock.style.fontWeight === "bold"
-                          ? "normal" // ✅ This is the fixed toggle logic!
-                          : "bold",
-                    },
-                  })
-                )
-              }
-            />
-          </>
-        )}
-      </InspectorSection>
     </Wrapper>
   );
 }
