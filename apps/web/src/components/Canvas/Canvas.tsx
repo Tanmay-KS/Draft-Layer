@@ -52,101 +52,6 @@ export default function Canvas() {
     ? blocks.find((block) => block.id === selectedTarget.id)
     : null;
 
-  // useEffect(() => {
-  //   const handleKeyDown = (e: KeyboardEvent) => {
-  //     // 1. ESC - Deselect
-  //     if (e.key === "Escape") {
-  //       dispatch(selectTarget(null));
-  //       return;
-  //     }
-
-  //     // 2. Only move if a block is actually selected
-  //     if (!selectedTarget || selectedTarget.type !== "block" || !selectedBlock) return;
-
-  //     // 3. Delete Logic
-  //     if (e.key === "Delete") {
-  //       dispatch(removeBlock(selectedTarget.id!));
-  //       return;
-  //     }
-
-  //     const step = e.shiftKey ? 5 : 1;
-  //     let newCol = selectedBlock.layout.colStart;
-  //     let newRow = selectedBlock.layout.rowStart;
-
-  //     if (
-  //       (e.ctrlKey || e.metaKey) &&
-  //       e.key.toLowerCase() === "d"
-  //     ) {
-  //       e.preventDefault();
-
-  //       if (!selectedTarget || selectedTarget.type !== "block") return;
-
-  //       const block = selectedBlock;
-  //       if (!block) return;
-
-  //       const newId = crypto.randomUUID();
-
-  //       dispatch(
-  //         addBlock({
-  //           id: newId,
-  //           type: block.type,
-  //           layout: {
-  //             ...block.layout,
-  //             colStart: block.layout.colStart + 1,
-  //             rowStart: block.layout.rowStart + 1,
-  //           },
-  //           content: {
-  //             ...block.content,
-  //           },
-  //           style: block.style,
-  //         })
-  //       );
-
-  //       return;
-  //     }
-
-  //     // 4. Movement Logic with Boundary Clamping
-  //     if (e.key === "ArrowLeft") {
-  //       e.preventDefault();
-  //       newCol = Math.max(1, selectedBlock.layout.colStart - step);
-  //     }
-
-  //     if (e.key === "ArrowRight") {
-  //       e.preventDefault();
-  //       const maxColStart = 48 - selectedBlock.layout.colSpan + 1;
-  //       newCol = Math.min(maxColStart, selectedBlock.layout.colStart + step);
-  //     }
-
-  //     if (e.key === "ArrowUp") {
-  //       e.preventDefault();
-  //       newRow = Math.max(1, selectedBlock.layout.rowStart - step);
-  //     }
-
-  //     if (e.key === "ArrowDown") {
-  //       e.preventDefault();
-  //       const maxRowStart = MAX_ROWS - selectedBlock.layout.rowSpan + 1;
-  //       newRow = Math.min(maxRowStart, selectedBlock.layout.rowStart + step);
-  //     }
-
-  //     // 5. Only dispatch if the values actually changed
-  //     if (
-  //       newCol !== selectedBlock.layout.colStart ||
-  //       newRow !== selectedBlock.layout.rowStart
-  //     ) {
-  //       dispatch(
-  //         updateBlockPosition({
-  //           id: selectedBlock.id,
-  //           colStart: newCol,
-  //           rowStart: newRow,
-  //         })
-  //       );
-  //     }
-  //   };
-
-  //   window.addEventListener("keydown", handleKeyDown);
-  //   return () => window.removeEventListener("keydown", handleKeyDown);
-  // }, [dispatch, selectedTarget, selectedBlock]); 
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -435,8 +340,43 @@ export default function Canvas() {
           Drag
         </div>
 
-        <strong>{block.type.toUpperCase()}</strong>
-        <div>{block.content.value}</div>
+        {/* Replace the old content <strong> and <div> with this: */}
+        {block.type === "image" ? (
+          <img
+            src={block.content.url || "https://placehold.co/400x300?text=Placeholder+Image"}
+            alt={block.content.alt || "Email Image"}
+            style={{ 
+              width: "100%", 
+              height: "100%", 
+              objectFit: "cover", 
+              display: "block" 
+            }}
+            draggable={false} // Prevents native image dragging from breaking Dnd-kit
+          />
+        ) : block.type === "button" ? (
+          <a
+            href={block.content.href || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex",
+              width: "100%",
+              height: "100%",
+              alignItems: "center",
+              justifyContent: block.style.textAlign || "center",
+              textDecoration: "none",
+              color: "inherit",
+              fontWeight: "inherit",
+            }}
+          >
+            {block.content.value || "Button"}
+          </a>
+        ) : (
+          <>
+            <strong>{block.type.toUpperCase()}</strong>
+            <div>{block.content.value}</div>
+          </>
+        )}
 
         {isSelected &&
           ["right","left","bottom","top","top-left","top-right","bottom-left","bottom-right"].map((pos) => (

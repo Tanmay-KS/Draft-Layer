@@ -1,4 +1,5 @@
 export interface BlockStyle {
+  padding: string;
   backgroundColor: string;
   border: {
     width: number;
@@ -29,6 +30,9 @@ export interface EmailBlock {
   style: BlockStyle;
   content: {
     value: string;
+    url?: string;
+    alt?: string;
+    href?: string;
   };
 }
 

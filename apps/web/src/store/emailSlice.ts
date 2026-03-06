@@ -477,6 +477,30 @@ const emailSlice = createSlice({
       state.selectedBlockIds = [];
       state.selectedTarget = { type: 'canvas' };
     },
+    // NEW: Handle Image Block updates
+    updateImageContent: (
+      state,
+      action: PayloadAction<{ id: string; url: string; alt: string }>
+    ) => {
+      pushToHistory(state);
+      const block = state.blocks.find((b) => b.id === action.payload.id);
+      if (block) {
+        block.content.url = action.payload.url;
+        block.content.alt = action.payload.alt;
+      }
+    },
+
+    // NEW: Handle Button Block link updates
+    updateButtonLink: (
+      state,
+      action: PayloadAction<{ id: string; href: string }>
+    ) => {
+      pushToHistory(state);
+      const block = state.blocks.find((b) => b.id === action.payload.id);
+      if (block) {
+        block.content.href = action.payload.href;
+      }
+    },
   },
 });
 
@@ -499,6 +523,8 @@ export const {
   clearSelection,
   moveSelectedBlocks,
   removeSelectedBlocks,
+  updateImageContent,
+  updateButtonLink,
 } = emailSlice.actions;
 
 export default emailSlice.reducer;

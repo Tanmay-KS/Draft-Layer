@@ -4,6 +4,7 @@ import styled from "@emotion/styled";
 import React from "react";
 import { spacing, colors } from "../../styles/tokens";
 
+import { exportHTML } from "../../export/exportHTML";
 import { Label } from "../ui/Label";
 import { Input } from "../ui/Inputs";
 import { Toggle } from "../ui/Toggle";
@@ -19,6 +20,8 @@ import {
   updateCanvasStyle,
   undo,
   redo,
+  updateButtonLink,
+  updateImageContent
 } from "../../store/emailSlice";
 
 const Wrapper = styled.div`
@@ -111,7 +114,7 @@ export default function Inspector() {
     );
   };
 
-  const handleOpacityChange = (value: number) => {
+  const handleOpacityChange = (value: number) => {  
     if (selectedTarget?.type === "block" && selectedBlock) {
       dispatch(
         updateBlockStyle({
@@ -132,17 +135,31 @@ export default function Inspector() {
 
   return (
     <Wrapper>
+      
       <Title active={selectedTarget?.type === "block"}>
         Inspector
       </Title>
-
+    
       {/* Undo / Redo always visible */}
-      <div style={{ display: "flex", gap: "8px" }}>
-        <button onClick={() => dispatch(undo())}>
+      {/* Global Actions: Undo, Redo, Export */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
+        <button 
+          onClick={() => dispatch(undo())}
+          style={{ flex: 1, padding: "8px", cursor: "pointer", borderRadius: "4px", border: "1px solid #ccc", background: "#fff" }}
+        >
           Undo
         </button>
-        <button onClick={() => dispatch(redo())}>
+        <button 
+          onClick={() => dispatch(redo())}
+          style={{ flex: 1, padding: "8px", cursor: "pointer", borderRadius: "4px", border: "1px solid #ccc", background: "#fff" }}
+        >
           Redo
+        </button>
+        <button 
+          onClick={() => exportHTML({ blocks, selectedTarget, canvasStyle, selectedBlockIds, past: [], future: [] })}
+          style={{ width: "100%", padding: "8px", cursor: "pointer", borderRadius: "4px", border: "none", background: "#007bff", color: "white", fontWeight: "bold" }}
+        >
+          Export HTML
         </button>
       </div>
 
@@ -165,18 +182,81 @@ export default function Inspector() {
           {selectedBlock && (
             <>
               <InspectorSection title="Layout">
-                <Label>Content</Label>
-                <Input
-                  value={selectedBlock.content.value}
-                  onChange={(e) =>
-                    dispatch(
-                      updateBlockContent({
-                        id: selectedBlock.id,
-                        content: e.target.value,
-                      })
-                    )
-                  }
-                />
+                {/* Dynamic Content Inputs */}
+                {selectedBlock.type === "image" ? (
+                  <>
+                    <Label>Image URL</Label>
+                    <Input
+                      value={selectedBlock.content.url || ""}
+                      onChange={(e) =>
+                        dispatch(
+                          updateImageContent({
+                            id: selectedBlock.id,
+                            url: e.target.value,
+                            alt: selectedBlock.content.alt || "",
+                          })
+                        )
+                      }
+                    />
+                    <Label>Alt Text</Label>
+                    <Input
+                      value={selectedBlock.content.alt || ""}
+                      onChange={(e) =>
+                        dispatch(
+                          updateImageContent({
+                            id: selectedBlock.id,
+                            url: selectedBlock.content.url || "",
+                            alt: e.target.value,
+                          })
+                        )
+                      }
+                    />
+                  </>
+                ) : selectedBlock.type === "button" ? (
+                  <>
+                    <Label>Button Text</Label>
+                    <Input
+                      value={selectedBlock.content.value}
+                      onChange={(e) =>
+                        dispatch(
+                          updateBlockContent({
+                            id: selectedBlock.id,
+                            content: e.target.value,
+                          })
+                        )
+                      }
+                    />
+                    <Label>Button Link</Label>
+                    <Input
+                      value={selectedBlock.content.href || ""}
+                      onChange={(e) =>
+                        dispatch(
+                          updateButtonLink({
+                            id: selectedBlock.id,
+                            href: e.target.value,
+                          })
+                        )
+                      }
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Label>Content</Label>
+                    <Input
+                      value={selectedBlock.content.value}
+                      onChange={(e) =>
+                        dispatch(
+                          updateBlockContent({
+                            id: selectedBlock.id,
+                            content: e.target.value,
+                          })
+                        )
+                      }
+                    />
+                  </>
+                )}
+
+                {/* ... Existing Width/Height/Col controls continue below ... */}
 
                 <Label>Width (1–48)</Label>
                 <Slider
