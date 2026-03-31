@@ -133,6 +133,38 @@ export default function Inspector() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    
+    // FIXED: Check selectedBlock instead of selectedTarget so we have access to the content
+    if (!file || !selectedBlock || selectedBlock.type !== "image") return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      console.log("Uploading to Supabase via Backend...");
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.url) {
+        // FIXED: We now use your existing `updateImageContent` action!
+        dispatch(
+          updateImageContent({
+            id: selectedBlock.id,
+            url: data.url,
+            alt: selectedBlock.content.alt || "",
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Upload failed:", error);
+    }
+  };
   return (
     <Wrapper>
       
@@ -185,6 +217,17 @@ export default function Inspector() {
                 {/* Dynamic Content Inputs */}
                 {selectedBlock.type === "image" ? (
                   <>
+                    <div style={{ marginTop: '10px' }}>
+                      <label style={{ fontSize: '12px', display: 'block', marginBottom: '5px' }}>
+                        Upload Local Image:
+                      </label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleImageUpload} 
+                        style={{ fontSize: '12px' }}
+                      />
+                    </div>
                     <Label>Image URL</Label>
                     <Input
                       value={selectedBlock.content.url || ""}
