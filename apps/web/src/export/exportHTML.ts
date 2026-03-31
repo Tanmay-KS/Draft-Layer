@@ -127,13 +127,32 @@ export function exportHTML(emailState: EmailState) {
 
   const inlinedHTML = juice(htmlTemplate);
 
-  const blob = new Blob([inlinedHTML], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "draft-layer-export.html";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Ask the user where to send it
+  const targetEmail = window.prompt("Enter your email address to send this test:");
+  
+  if (!targetEmail) {
+    console.log("Sending cancelled.");
+    return;
+  }
+
+  console.log(`Blasting email to ${targetEmail}...`);
+
+  // Send the HTML and the email address to your new Next.js API route
+  fetch('/api/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      html: inlinedHTML, 
+      email: targetEmail 
+    }),
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("Success!", data);
+    alert("Email sent! Check your inbox.");
+  })
+  .catch(err => {
+    console.error("Failed to send", err);
+    alert("Failed to send email. Check your console.");
+  });
 }
