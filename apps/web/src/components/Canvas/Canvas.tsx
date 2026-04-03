@@ -423,10 +423,12 @@ export default function Canvas() {
           style={{
             minHeight: `${visualRows * cellSize*2}px`,
             backgroundColor: canvasStyle.backgroundColor,
-            border: canvasStyle.border
-              ? `${canvasStyle.border.width || 0}px solid ${canvasStyle.border.color || 'transparent'}`
+            // ✅ New safe code
+            border: canvasStyle.border 
+              ? `${canvasStyle.border.width}px solid ${canvasStyle.border.color}` 
               : 'none',
-            borderRadius: `${canvasStyle.border.radius}px`,
+            // Check if border exists BEFORE accessing radius
+            borderRadius: canvasStyle.border ? `${canvasStyle.border.radius}px` : '0px',
             display: "grid",
             gridTemplateColumns: "repeat(48, 1fr)",
             gridAutoRows: `${cellSize}px`,

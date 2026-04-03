@@ -8,6 +8,7 @@ import { exportHTML } from "../../export/exportHTML";
 import { Label } from "../ui/Label";
 import { Input } from "../ui/Inputs";
 import { Toggle } from "../ui/Toggle";
+import { saveTemplateToCloud } from '../../utils/templateApi';
 import { Slider } from "../ui/Slider";
 import { InspectorSection } from "../ui/InspectorSection";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
@@ -51,10 +52,10 @@ const Title = styled.h3<{ active?: boolean }>`
 export default function Inspector() {
   const dispatch = useAppDispatch();
 
-  // FIXED: Pulled selectedBlockIds from here to avoid duplicate selector errors
-  const { blocks, selectedTarget, canvasStyle, selectedBlockIds } = useAppSelector(
-    (state) => state.email
-  );
+  // 1. Grab the full state object first
+  const fullEmailState = useAppSelector((state) => state.email);
+  // 2. Destructure the pieces you need from it
+  const { blocks, selectedTarget, canvasStyle, selectedBlockIds } = fullEmailState;
 
   const selectedBlock =
     selectedTarget?.type === "block"
@@ -66,7 +67,9 @@ export default function Inspector() {
       dispatch(
         updateBlockStyle({
           id: selectedBlock.id,
-          style: { backgroundColor: value },
+          style: { 
+            ...selectedBlock.style,
+            backgroundColor: value },
         })
       );
     }
@@ -105,6 +108,7 @@ export default function Inspector() {
         id: selectedBlock.id,
         style: {
           border: {
+            ...selectedBlock.style,
             width: value,
             color: selectedBlock.style.border.color,
             radius: selectedBlock.style.border.radius,
@@ -119,7 +123,9 @@ export default function Inspector() {
       dispatch(
         updateBlockStyle({
           id: selectedBlock.id,
-          style: { opacity: value },
+          style: { 
+            ...selectedBlock.style,
+            opacity: value },
         })
       );
     }
@@ -193,6 +199,22 @@ export default function Inspector() {
         >
           Export HTML
         </button>
+        <button 
+          onClick={async () => {
+            const name = prompt("Name your template:", "My Awesome Email");
+            if (name) {
+              try {
+                const id = await saveTemplateToCloud(name, fullEmailState);
+                alert(`Saved successfully! Template ID: ${id}`);
+              } catch (e) {
+                alert("Failed to save. Check console.");
+              }
+            }
+          }}
+          style={{ width: "100%", padding: "8px", cursor: "pointer", borderRadius: "4px", border: "none", background: "#10b981", color: "white", fontWeight: "bold", marginTop: "8px" }}
+        >
+          Save to Cloud ☁️
+        </button>
       </div>
 
       {/* FIXED: Check for multi-select here so Undo/Redo buttons stay visible */}
@@ -231,6 +253,7 @@ export default function Inspector() {
                     <Label>Image URL</Label>
                     <Input
                       value={selectedBlock.content.url || ""}
+                      onKeyDown={(e) => e.stopPropagation()}
                       onChange={(e) =>
                         dispatch(
                           updateImageContent({
@@ -244,6 +267,7 @@ export default function Inspector() {
                     <Label>Alt Text</Label>
                     <Input
                       value={selectedBlock.content.alt || ""}
+                      onKeyDown={(e) => e.stopPropagation()}
                       onChange={(e) =>
                         dispatch(
                           updateImageContent({
@@ -272,6 +296,7 @@ export default function Inspector() {
                     <Label>Button Link</Label>
                     <Input
                       value={selectedBlock.content.href || ""}
+                      onKeyDown={(e) => e.stopPropagation()}
                       onChange={(e) =>
                         dispatch(
                           updateButtonLink({
@@ -287,6 +312,7 @@ export default function Inspector() {
                     <Label>Content</Label>
                     <Input
                       value={selectedBlock.content.value}
+                      onKeyDown={(e) => e.stopPropagation()}
                       onChange={(e) =>
                         dispatch(
                           updateBlockContent({
@@ -320,6 +346,7 @@ export default function Inspector() {
                 <Input
                   type="number"
                   value={selectedBlock.layout.colStart}
+                  onKeyDown={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     dispatch(
                       updateBlockPosition({
@@ -335,6 +362,7 @@ export default function Inspector() {
                 <Input
                   type="number"
                   value={selectedBlock.layout.rowStart}
+                  onKeyDown={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     dispatch(
                       updateBlockPosition({
@@ -350,6 +378,7 @@ export default function Inspector() {
                 <Input
                   type="number"
                   value={selectedBlock.layout.rowSpan}
+                  onKeyDown={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     dispatch(
                       updateBlockHeight({
@@ -367,11 +396,13 @@ export default function Inspector() {
                   value={selectedBlock.style.fontSize || 16}
                   min={8}
                   max={72}
+                  onKeyDown={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     dispatch(
                       updateBlockStyle({
                         id: selectedBlock.id,
                         style: {
+                          ...selectedBlock.style,
                           fontSize: Number(e.target.value),
                         },
                       })
@@ -382,11 +413,13 @@ export default function Inspector() {
                 <Label>Bold</Label>
                 <Toggle
                   checked={selectedBlock.style.fontWeight === "bold"}
+                  onKeyDown={(e) => e.stopPropagation()}
                   onChange={() =>
                     dispatch(
                       updateBlockStyle({
                         id: selectedBlock.id,
                         style: {
+                          ...selectedBlock.style,
                           fontWeight:
                             selectedBlock.style.fontWeight === "bold"
                               ? "normal"
@@ -409,6 +442,7 @@ export default function Inspector() {
                   ? canvasStyle.backgroundColor
                   : selectedBlock?.style.backgroundColor || ""
               }
+              onKeyDown={(e) => e.stopPropagation()}
               onChange={(e) =>
                 handleBackgroundChange(e.target.value)
               }
@@ -431,6 +465,7 @@ export default function Inspector() {
                   value={selectedBlock.style.border.width}
                   min={0}
                   max={20}
+                  onKeyDown={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     handleBorderWidthChange(Number(e.target.value))
                   }
