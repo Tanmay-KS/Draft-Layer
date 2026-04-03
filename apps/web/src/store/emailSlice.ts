@@ -1,14 +1,9 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { EmailState, EmailBlock, BlockStyle } from './types';
+import { EmailState, EmailBlock, BlockStyle,CanvasStyle } from './types';
+import { Blocks } from 'lucide-react';
 
-const defaultCanvasStyle: BlockStyle = {
+const defaultCanvasStyle: CanvasStyle = {
   backgroundColor: '#f8f9fa',
-  border: {
-    width: 0,
-    color: '#000000',
-    radius: 0,
-  },
-  shadow: 'none',
   opacity: 1,
 };
 
@@ -21,6 +16,7 @@ const defaultBlockStyle: BlockStyle = {
   },
   shadow: 'none',
   opacity: 1,
+  padding: '10px', // Set a default padding
 };
 
 const initialState: EmailState = {
@@ -77,6 +73,7 @@ const emailSlice = createSlice({
   reducers: {
     addBlock: (
       state,
+      // ✅ New flexible type
       action: PayloadAction<{
         id: string;
         type: string;
@@ -86,9 +83,12 @@ const emailSlice = createSlice({
           rowStart: number;
           rowSpan: number;
         };
-        content: {
-          value: string;
-        };
+        content: { 
+          value?: string; 
+          url?: string; 
+          alt?: string; 
+          href?: string; 
+        }; 
         style?: BlockStyle;
       }>
     ) => {
@@ -525,6 +525,7 @@ export const {
   removeSelectedBlocks,
   updateImageContent,
   updateButtonLink,
+
 } = emailSlice.actions;
 
 export default emailSlice.reducer;
