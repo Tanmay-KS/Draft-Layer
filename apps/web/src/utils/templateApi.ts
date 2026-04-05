@@ -10,6 +10,7 @@ export interface TemplatePayload {
   };
 }
 
+
 // 2. The Export Helper
 export const saveTemplateToCloud = async (
   templateName: string, 
@@ -44,6 +45,22 @@ export const saveTemplateToCloud = async (
     
   } catch (error) {
     console.error("Failed to save template:", error);
+    throw error;
+  }
+};
+export const fetchTemplates = async () => {
+  try {
+    const response = await fetch('/api/templates');
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to fetch');
+    }
+
+    const data = await response.json();
+    return data; // This returns the array of templates from Supabase
+  } catch (error) {
+    console.error("API Fetch Error:", error);
     throw error;
   }
 };

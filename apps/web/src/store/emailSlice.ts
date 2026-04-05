@@ -501,6 +501,18 @@ const emailSlice = createSlice({
         block.content.href = action.payload.href;
       }
     },
+  loadTemplate: (state, action: PayloadAction<{ blocks: EmailBlock[]; canvasStyle: CanvasStyle }>) => {
+    // 💾 Optional: Push current work to history before overwriting so the user can "Undo" back
+    pushToHistory(state);
+
+    // ⚡ Overwrite the current canvas with the saved data
+    state.blocks = action.payload.blocks;
+    state.canvasStyle = action.payload.canvasStyle;
+    
+    // 🧹 Reset selection so the inspector doesn't try to edit a non-existent block
+    state.selectedTarget = { type: 'canvas' };
+    state.selectedBlockIds = [];
+  },
   },
 });
 
@@ -525,6 +537,7 @@ export const {
   removeSelectedBlocks,
   updateImageContent,
   updateButtonLink,
+  loadTemplate,
 
 } = emailSlice.actions;
 

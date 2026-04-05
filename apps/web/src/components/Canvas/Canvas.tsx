@@ -53,46 +53,51 @@ export default function Canvas() {
     : null;
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        dispatch(clearSelection());
-        return;
-      }
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // 1. Global Escape
+    if (e.key === "Escape") {
+      dispatch(clearSelection());
+      return;
+    }
 
-      if (selectedBlockIds.length === 0) return;
+    if (selectedBlockIds.length === 0) return;
 
-      // Bulk Delete (1 clean dispatch)
-      if (e.key === "Delete" || e.key === "Backspace") {
-        dispatch(removeSelectedBlocks());
-        return;
-      }
+    // 2. Bulk Delete
+    if (e.key === "Delete" || e.key === "Backspace") {
+      // Prevents the browser from going "Back" a page on Backspace
+      e.preventDefault(); 
+      dispatch(removeSelectedBlocks());
+      return;
+    }
 
-      // Bulk Duplicate (Ctrl+D) - We keep this loop here because we need random UUIDs
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
-        e.preventDefault();
-        selectedBlockIds.forEach(id => {
-          const block = blocks.find(b => b.id === id);
-          if (!block) return;
-          const newId = crypto.randomUUID();
-          dispatch(
-            addBlock({
-              id: newId,
-              type: block.type,
-              layout: {
-                ...block.layout,
-                colStart: block.layout.colStart + 1,
-                rowStart: block.layout.rowStart + 1,
-              },
-              content: { ...block.content },
-              style: block.style,
-            })
-          );
-        });
-        return;
-      }
+    // 3. Bulk Duplicate (Ctrl + D is safer than Ctrl + C to avoid clipboard conflicts)
+    const isModifier = e.ctrlKey || e.metaKey;
+    if (isModifier && e.key.toLowerCase() === "d") {
+      e.preventDefault();
+      selectedBlockIds.forEach(id => {
+        const block = blocks.find(b => b.id === id);
+        if (!block) return;
+        dispatch(addBlock({
+          ...block,
+          id: crypto.randomUUID(),
+          layout: {
+            ...block.layout,
+            colStart: block.layout.colStart + 2,
+            rowStart: block.layout.rowStart + 2,
+          }
+        }));
+      });
+      return;
+    }
 
-      // Bulk Move (1 clean dispatch)
-      const step = e.shiftKey ? 5 : 1;
+    // 4. Bulk Move Logic
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+      // 🛡️ CRITICAL: Prevent the browser from scrolling the page
+      e.preventDefault(); 
+
+      // Support for Mac (metaKey) and Windows (ctrlKey)
+      const step = isModifier ? 10 : (e.shiftKey ? 5 : 1);
+      
       let colChange = 0;
       let rowChange = 0;
 
@@ -102,14 +107,14 @@ export default function Canvas() {
       if (e.key === "ArrowDown") rowChange = step;
 
       if (colChange !== 0 || rowChange !== 0) {
-        e.preventDefault();
         dispatch(moveSelectedBlocks({ colChange, rowChange }));
       }
-    };
+    }
+  };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dispatch, selectedBlockIds, blocks]);
+  window.addEventListener("keydown", handleKeyDown);
+  return () => window.removeEventListener("keydown", handleKeyDown);
+}, [dispatch, selectedBlockIds, blocks]);
   
   const cellSize = 20;
   const MAX_ROWS = 100;

@@ -8,6 +8,8 @@ export interface BlockStyle {
   backgroundColor: string;
   border: BorderStyle;
   shadow: string;
+  color?: string;
+  textAlign?: 'left' | 'center' | 'right';
   opacity: number;
   padding: string; // Added to fix your TS error
   fontSize?: number;

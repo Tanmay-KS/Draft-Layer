@@ -65,8 +65,30 @@ export function exportHTML(emailState: EmailState) {
         innerContent = `<div style="color: ${color}; font-size: ${fontSize}; word-break: break-word;">${content.value || "Text Block"}</div>`;
       } 
       else if (type === "image") {
-        innerContent = `<img src="${content.url || "https://placehold.co/600x200?text=Image"}" alt="${content.alt || "Image"}" width="100%" style="max-width: 100%; height: auto; display: block; border: 0;" />`;
-      } 
+        let finalUrl = content.url;
+
+        // 🛠️ CHECK: If the URL is just a filename (doesn't start with http), 
+        // we must attach the Supabase Public Prefix!
+        if (finalUrl?.startsWith('data:')) {
+          // We replace it with a placeholder so the email doesn't look broken
+          finalUrl = "https://placehold.co/600x400?text=Please+Save+to+Cloud+First";
+          console.error("Found a data URI! Always click 'Save to Cloud' before exporting.");
+        }
+        else if (finalUrl && !finalUrl.startsWith('http')) {
+          const PROJECT_ID = 'htjleyvahzpevjbrimag'; // 👈 Replace with your actual Supabase ID
+          const BUCKET = 'email-images';      // 👈 Replace with your bucket name
+          
+          finalUrl = `https://${PROJECT_ID}.supabase.co/storage/v1/object/public/${BUCKET}/${finalUrl}`;
+        }
+
+        innerContent = `
+          <img 
+            src="${finalUrl || "https://placehold.co/600x200?text=Missing+Image"}" 
+            alt="${content.alt || "Image"}" 
+            width="100%" 
+            style="max-width: 100%; height: auto; display: block; border: 0;" 
+          />`;
+      }
       else if (type === "button") {
         innerContent = `
           <table border="0" cellpadding="0" cellspacing="0" width="100%">

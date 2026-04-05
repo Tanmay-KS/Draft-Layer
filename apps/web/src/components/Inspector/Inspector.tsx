@@ -2,13 +2,14 @@
 
 import styled from "@emotion/styled";
 import React from "react";
+import { useState } from "react";
 import { spacing, colors } from "../../styles/tokens";
 
 import { exportHTML } from "../../export/exportHTML";
 import { Label } from "../ui/Label";
 import { Input } from "../ui/Inputs";
 import { Toggle } from "../ui/Toggle";
-import { saveTemplateToCloud } from '../../utils/templateApi';
+import { saveTemplateToCloud,fetchTemplates } from '../../utils/templateApi';
 import { Slider } from "../ui/Slider";
 import { InspectorSection } from "../ui/InspectorSection";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
@@ -22,7 +23,8 @@ import {
   undo,
   redo,
   updateButtonLink,
-  updateImageContent
+  updateImageContent,
+  loadTemplate,
 } from "../../store/emailSlice";
 
 const Wrapper = styled.div`
@@ -50,6 +52,23 @@ const Title = styled.h3<{ active?: boolean }>`
 `;
 
 export default function Inspector() {
+  
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const handleOpenGallery = async () => {
+    setLoading(true);
+    setIsGalleryOpen(true);
+    try {
+      const data = await fetchTemplates(); // Using the helper we just made
+      setTemplates(data);
+    } catch (err) {
+      alert("Failed to load templates");
+    } finally {
+      setLoading(false);
+    }
+  };
   const dispatch = useAppDispatch();
 
   // 1. Grab the full state object first
@@ -215,6 +234,56 @@ export default function Inspector() {
         >
           Save to Cloud ☁️
         </button>
+        <button 
+          onClick={handleOpenGallery}
+          style={{ width: '100%', padding: '10px', marginTop: '10px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+        >
+          Open Saved Templates 📂
+        </button>
+        {/* 📂 Template Gallery Modal */}
+        {isGalleryOpen && (
+          <div 
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setIsGalleryOpen(false)} // Close if clicking outside
+          >
+            <div 
+              style={{ background: 'white', padding: '24px', borderRadius: '12px', width: '400px', maxHeight: '80vh', overflowY: 'auto' }}
+              onClick={(e) => e.stopPropagation()} // 🛡️ Don't close when clicking inside the modal
+              onKeyDown={(e) => e.stopPropagation()} // 🛡️ Shield from Canvas commands
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0 }}>Saved Templates</h3>
+                <button onClick={() => setIsGalleryOpen(false)}>✕</button>
+              </div>
+
+              {loading ? (
+                <p>Loading...</p>
+              ) : templates.length === 0 ? (
+                <p>No templates found. Save one first!</p>
+              ) : (
+                templates.map((t) => (
+                  <div 
+                    key={t.id} 
+                    style={{ padding: '12px', border: '1px solid #eee', borderRadius: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                    onClick={() => {
+                      // 🚀 THIS IS THE HYDRATION STEP
+                      dispatch(loadTemplate(t.content)); 
+                      setIsGalleryOpen(false);
+                    }}
+                  >
+                    <div>
+                      <strong style={{ display: 'block' }}>{t.name}</strong>
+                      <small style={{ color: '#888' }}>{new Date(t.created_at).toLocaleDateString()}</small>
+                    </div>
+                    <button style={{ background: '#007bff', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px' }}>
+                      Load
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* FIXED: Check for multi-select here so Undo/Redo buttons stay visible */}
