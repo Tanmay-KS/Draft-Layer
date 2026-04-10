@@ -38,7 +38,8 @@ export default function Canvas() {
   const handleBlockClick = (e: React.MouseEvent, blockId: string) => {
     e.stopPropagation(); // Prevent canvas click from firing
     
-    if (e.shiftKey) {
+    const isMultiSelect = e.ctrlKey || e.metaKey;
+    if (isMultiSelect) {
       dispatch(toggleBlockSelection(blockId));
     } else {
       dispatch(setSelectedBlocks([blockId]));

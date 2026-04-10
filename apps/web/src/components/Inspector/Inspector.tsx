@@ -1,15 +1,13 @@
 "use client";
-
+import React, { useEffect, useState } from "react";
 import styled from "@emotion/styled";
-import React from "react";
-import { useState } from "react";
 import { spacing, colors } from "../../styles/tokens";
 
 import { exportHTML } from "../../export/exportHTML";
 import { Label } from "../ui/Label";
 import { Input } from "../ui/Inputs";
 import { Toggle } from "../ui/Toggle";
-import { saveTemplateToCloud,fetchTemplates } from '../../utils/templateApi';
+import { fetchTemplates, saveTemplateToCloud } from '../../utils/templateApi';
 import { Slider } from "../ui/Slider";
 import { InspectorSection } from "../ui/InspectorSection";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
@@ -52,23 +50,44 @@ const Title = styled.h3<{ active?: boolean }>`
 `;
 
 export default function Inspector() {
-  
+
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [viewType, setViewType] = useState<'project' | 'template'>('project');
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleOpenGallery = async () => {
+  const loadTemplatesForTab = async (type: 'project' | 'template') => {
     setLoading(true);
-    setIsGalleryOpen(true);
+    setErrorMsg("");
+    setTemplates([]);
     try {
-      const data = await fetchTemplates(); // Using the helper we just made
+      const data = await fetchTemplates(type);
       setTemplates(data);
-    } catch (err) {
-      alert("Failed to load templates");
+    } catch (err: any) {
+      console.error(err);
+      if (err.message === "Unauthorized") {
+        setErrorMsg("Please log in to see your saved work.");
+      } else {
+        setErrorMsg("Failed to load templates.");
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (isGalleryOpen) {
+      loadTemplatesForTab(viewType);
+    }
+  }, [viewType, isGalleryOpen]);
+
+  const handleOpenGallery = () => {
+    setIsGalleryOpen(true);
+  };
+
   const dispatch = useAppDispatch();
 
   // 1. Grab the full state object first
@@ -86,9 +105,10 @@ export default function Inspector() {
       dispatch(
         updateBlockStyle({
           id: selectedBlock.id,
-          style: { 
+          style: {
             ...selectedBlock.style,
-            backgroundColor: value },
+            backgroundColor: value
+          },
         })
       );
     }
@@ -137,14 +157,15 @@ export default function Inspector() {
     );
   };
 
-  const handleOpacityChange = (value: number) => {  
+  const handleOpacityChange = (value: number) => {
     if (selectedTarget?.type === "block" && selectedBlock) {
       dispatch(
         updateBlockStyle({
           id: selectedBlock.id,
-          style: { 
+          style: {
             ...selectedBlock.style,
-            opacity: value },
+            opacity: value
+          },
         })
       );
     }
@@ -160,15 +181,12 @@ export default function Inspector() {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    
-    // FIXED: Check selectedBlock instead of selectedTarget so we have access to the content
     if (!file || !selectedBlock || selectedBlock.type !== "image") return;
 
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-      console.log("Uploading to Supabase via Backend...");
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
@@ -192,49 +210,70 @@ export default function Inspector() {
   };
   return (
     <Wrapper>
-      
+
       <Title active={selectedTarget?.type === "block"}>
         Inspector
       </Title>
-    
       {/* Undo / Redo always visible */}
       {/* Global Actions: Undo, Redo, Export */}
       <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
-        <button 
+        <button
           onClick={() => dispatch(undo())}
           style={{ flex: 1, padding: "8px", cursor: "pointer", borderRadius: "4px", border: "1px solid #ccc", background: "#fff" }}
         >
           Undo
         </button>
-        <button 
+        <button
           onClick={() => dispatch(redo())}
           style={{ flex: 1, padding: "8px", cursor: "pointer", borderRadius: "4px", border: "1px solid #ccc", background: "#fff" }}
         >
           Redo
         </button>
-        <button 
-          onClick={() => exportHTML({ blocks, selectedTarget, canvasStyle, selectedBlockIds, past: [], future: [] })}
-          style={{ width: "100%", padding: "8px", cursor: "pointer", borderRadius: "4px", border: "none", background: "#007bff", color: "white", fontWeight: "bold" }}
-        >
-          Export HTML
-        </button>
-        <button 
+        <button
+          disabled={isSending}
           onClick={async () => {
-            const name = prompt("Name your template:", "My Awesome Email");
+            setIsSending(true);
+            try {
+              const result = await exportHTML({ blocks, selectedTarget, canvasStyle, selectedBlockIds, past: [], future: [] });
+              if (result.success) {
+                alert(`✅ ${result.message}`);
+              } else {
+                // Don't swallow the error — show exactly what Resend returned
+                alert(`❌ ${result.message}`);
+              }
+            } catch (err: any) {
+              alert(`❌ Unexpected error: ${err.message}`);
+            } finally {
+              setIsSending(false);
+            }
+          }}
+          style={{ width: "100%", padding: "8px", cursor: isSending ? "not-allowed" : "pointer", borderRadius: "4px", border: "none", background: isSending ? "#93c5fd" : "#007bff", color: "white", fontWeight: "bold" }}
+        >
+          {isSending ? "Sending..." : "Export HTML"}
+        </button>
+
+        <button
+          disabled={isSaving}
+          onClick={async () => {
+            const name = prompt("Name your project:", "My Awesome Email");
             if (name) {
+              setIsSaving(true);
               try {
-                const id = await saveTemplateToCloud(name, fullEmailState);
-                alert(`Saved successfully! Template ID: ${id}`);
-              } catch (e) {
-                alert("Failed to save. Check console.");
+                // Save it as a generic project (isProject = true)
+                const id = await saveTemplateToCloud(name, fullEmailState, true);
+                alert(`Saved successfully! Project ID: ${id}`);
+              } catch (e: any) {
+                alert(e.message || "Failed to save. Check console.");
+              } finally {
+                setIsSaving(false);
               }
             }
           }}
-          style={{ width: "100%", padding: "8px", cursor: "pointer", borderRadius: "4px", border: "none", background: "#10b981", color: "white", fontWeight: "bold", marginTop: "8px" }}
+          style={{ width: "100%", padding: "8px", cursor: isSaving ? "not-allowed" : "pointer", borderRadius: "4px", border: "none", background: isSaving ? "#6ee7b7" : "#10b981", color: "white", fontWeight: "bold", marginTop: "8px" }}
         >
-          Save to Cloud ☁️
+          {isSaving ? "Saving..." : "Save to Cloud ☁️"}
         </button>
-        <button 
+        <button
           onClick={handleOpenGallery}
           style={{ width: '100%', padding: '10px', marginTop: '10px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
         >
@@ -242,48 +281,73 @@ export default function Inspector() {
         </button>
         {/* 📂 Template Gallery Modal */}
         {isGalleryOpen && (
-          <div 
+          <div
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={() => setIsGalleryOpen(false)} // Close if clicking outside
           >
-            <div 
-              style={{ background: 'white', padding: '24px', borderRadius: '12px', width: '400px', maxHeight: '80vh', overflowY: 'auto' }}
+            <div
+              style={{ background: 'white', padding: '24px', borderRadius: '12px', width: '500px', maxHeight: '80vh', overflowY: 'auto' }}
               onClick={(e) => e.stopPropagation()} // 🛡️ Don't close when clicking inside the modal
               onKeyDown={(e) => e.stopPropagation()} // 🛡️ Shield from Canvas commands
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <h3 style={{ margin: 0 }}>Saved Templates</h3>
-                <button onClick={() => setIsGalleryOpen(false)}>✕</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => setViewType('project')}
+                    style={{ padding: '8px 16px', background: viewType === 'project' ? '#007bff' : '#f1f1f1', color: viewType === 'project' ? 'white' : '#333', borderRadius: '6px', border: 'none', fontWeight: 'bold', cursor: 'pointer', transition: 'background 0.2s ease' }}
+                  >
+                    My Projects
+                  </button>
+                  <button
+                    onClick={() => setViewType('template')}
+                    style={{ padding: '8px 16px', background: viewType === 'template' ? '#007bff' : '#f1f1f1', color: viewType === 'template' ? 'white' : '#333', borderRadius: '6px', border: 'none', fontWeight: 'bold', cursor: 'pointer', transition: 'background 0.2s ease' }}
+                  >
+                    Gallery
+                  </button>
+                </div>
+                <button onClick={() => setIsGalleryOpen(false)} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#666' }}>✕</button>
               </div>
 
               {loading ? (
-                <p>Loading...</p>
+                <p style={{ textAlign: 'center', color: '#666', padding: '20px 0' }}>Loading templates...</p>
+              ) : errorMsg ? (
+                <div style={{ padding: '16px', background: '#fef3c7', color: '#92400e', borderRadius: '8px', border: '1px solid #fde68a', fontWeight: '500' }}>
+                  ⚠️ {errorMsg}
+                </div>
               ) : templates.length === 0 ? (
-                <p>No templates found. Save one first!</p>
+                <p style={{ textAlign: 'center', color: '#666', padding: '20px 0' }}>No templates found. {viewType === 'project' ? "Save one first!" : ""}</p>
               ) : (
-                templates.map((t) => (
-                  <div 
-                    key={t.id} 
-                    style={{ padding: '12px', border: '1px solid #eee', borderRadius: '8px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                    onClick={() => {
-                      // 🚀 THIS IS THE HYDRATION STEP
-                      dispatch(loadTemplate(t.content)); 
-                      setIsGalleryOpen(false);
-                    }}
-                  >
-                    <div>
-                      <strong style={{ display: 'block' }}>{t.name}</strong>
-                      <small style={{ color: '#888' }}>{new Date(t.created_at).toLocaleDateString()}</small>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {templates.map((t) => (
+                    <div
+                      key={t.id}
+                      style={{ padding: '16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#007bff'; e.currentTarget.style.background = '#f1f5f9'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#f8fafc'; }}
+                      onClick={() => {
+                        // 🚀 THIS IS THE HYDRATION STEP
+                        dispatch(loadTemplate(t.content));
+                        setIsGalleryOpen(false);
+                      }}
+                    >
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '15px', color: '#0f172a', marginBottom: '4px' }}>{t.name}</strong>
+                        <small style={{ color: '#64748b' }}>{new Date(t.created_at).toLocaleDateString()}</small>
+                      </div>
+                      <button style={{ background: '#007bff', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', transition: 'background 0.2s ease' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#0056b3'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = '#007bff'}
+                      >
+                        Load
+                      </button>
                     </div>
-                    <button style={{ background: '#007bff', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px' }}>
-                      Load
-                    </button>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           </div>
         )}
+
       </div>
 
       {/* FIXED: Check for multi-select here so Undo/Redo buttons stay visible */}
@@ -312,10 +376,10 @@ export default function Inspector() {
                       <label style={{ fontSize: '12px', display: 'block', marginBottom: '5px' }}>
                         Upload Local Image:
                       </label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleImageUpload} 
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
                         style={{ fontSize: '12px' }}
                       />
                     </div>
