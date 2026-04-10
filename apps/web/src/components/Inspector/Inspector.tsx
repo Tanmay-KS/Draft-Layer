@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import styled from "@emotion/styled";
 import { spacing, colors } from "../../styles/tokens";
 
@@ -236,13 +237,13 @@ export default function Inspector() {
             try {
               const result = await exportHTML({ blocks, selectedTarget, canvasStyle, selectedBlockIds, past: [], future: [] });
               if (result.success) {
-                alert(`✅ ${result.message}`);
+                toast.success(result.message);
               } else {
                 // Don't swallow the error — show exactly what Resend returned
-                alert(`❌ ${result.message}`);
+                toast.error(result.message);
               }
             } catch (err: any) {
-              alert(`❌ Unexpected error: ${err.message}`);
+              toast.error(`Unexpected error: ${err.message}`);
             } finally {
               setIsSending(false);
             }
@@ -261,9 +262,9 @@ export default function Inspector() {
               try {
                 // Save it as a generic project (isProject = true)
                 const id = await saveTemplateToCloud(name, fullEmailState, true);
-                alert(`Saved successfully! Project ID: ${id}`);
+                toast.success(`Saved successfully! Project ID: ${id}`);
               } catch (e: any) {
-                alert(e.message || "Failed to save. Check console.");
+                toast.error(e.message || "Failed to save. Check console.");
               } finally {
                 setIsSaving(false);
               }
@@ -328,6 +329,7 @@ export default function Inspector() {
                         // 🚀 THIS IS THE HYDRATION STEP
                         dispatch(loadTemplate(t.content));
                         setIsGalleryOpen(false);
+                        toast.success(`Template "${t.name}" loaded into canvas`);
                       }}
                     >
                       <div>
