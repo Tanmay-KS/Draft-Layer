@@ -2,7 +2,7 @@
 
 import styled from "@emotion/styled";
 import React from "react";
-import { spacing, radius, colors, transitions } from "../../../styles/tokens";
+import { spacing, radius, colors, transitions } from "../../styles/tokens";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
 
