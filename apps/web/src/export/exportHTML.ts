@@ -1,7 +1,18 @@
 import { EmailState } from '../store/types';
 import juice from 'juice';
 
-export function exportHTML(emailState: EmailState) {
+/**
+ * Result object returned from exportHTML so the caller can
+ * react with proper UI (toasts, spinners, etc.).
+ */
+export interface ExportResult {
+  success: boolean;
+  message: string;
+  /** Resend data payload on success */
+  data?: any;
+}
+
+export async function exportHTML(emailState: EmailState): Promise<ExportResult> {
   const { blocks, canvasStyle } = emailState;
 
   // 1. Sort Blocks top-to-bottom, left-to-right
@@ -150,31 +161,65 @@ export function exportHTML(emailState: EmailState) {
   const inlinedHTML = juice(htmlTemplate);
 
   // Ask the user where to send it
-  const targetEmail = window.prompt("Enter your email address to send this test:");
-  
-  if (!targetEmail) {
-    console.log("Sending cancelled.");
-    return;
+  const targetEmail = window.prompt("Enter the recipient's email address:");
+  if (!targetEmail || !targetEmail.trim()) {
+    return { success: false, message: "Export cancelled." };
   }
 
-  console.log(`Blasting email to ${targetEmail}...`);
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(targetEmail.trim())) {
+    return { success: false, message: "Invalid email address format." };
+  }
 
-  // Send the HTML and the email address to your new Next.js API route
-  fetch('/api/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      html: inlinedHTML, 
-      email: targetEmail 
-    }),
-  })
-  .then(res => res.json())
-  .then(data => {
-    console.log("Success!", data);
-    alert("Email sent! Check your inbox.");
-  })
-  .catch(err => {
-    console.error("Failed to send", err);
-    alert("Failed to send email. Check your console.");
-  });
+  // Ask for the sender's email (used for reply-to)
+  const userEmail = window.prompt(
+    "Enter your email address (so replies come back to you):"
+  );
+  if (!userEmail || !userEmail.trim()) {
+    return { success: false, message: "Export cancelled — sender email is required for reply-to." };
+  }
+  if (!emailRegex.test(userEmail.trim())) {
+    return { success: false, message: "Invalid sender email address format." };
+  }
+
+  console.log(`Sending email to ${targetEmail}...`);
+
+  // ✅ FIX: Payload keys now match exactly what the API route expects
+  try {
+    const res = await fetch('/api/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetEmail: targetEmail.trim(),
+        userEmail: userEmail.trim(),
+        htmlContent: inlinedHTML,
+      }),
+    });
+
+    const data = await res.json();
+
+    // ✅ FIX: Actually check the HTTP status — don't treat 4xx/5xx as success
+    if (!res.ok) {
+      const errorDetail = data.error?.message || data.error || `Server responded with ${res.status}`;
+      console.error("Email send failed:", errorDetail);
+      return {
+        success: false,
+        message: `Email failed: ${errorDetail}`,
+      };
+    }
+
+    console.log("Email sent successfully!", data);
+    return {
+      success: true,
+      message: "Email sent! Check your inbox.",
+      data: data.data,
+    };
+  } catch (err: any) {
+    console.error("Network error sending email:", err);
+    return {
+      success: false,
+      message: `Network error: ${err.message || "Could not reach the server."}`,
+    };
+  }
 }

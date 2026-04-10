@@ -55,6 +55,7 @@ export default function Inspector() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [viewType, setViewType] = useState<'project' | 'template'>('project');
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -229,10 +230,26 @@ export default function Inspector() {
           Redo
         </button>
         <button
-          onClick={() => exportHTML({ blocks, selectedTarget, canvasStyle, selectedBlockIds, past: [], future: [] })}
-          style={{ width: "100%", padding: "8px", cursor: "pointer", borderRadius: "4px", border: "none", background: "#007bff", color: "white", fontWeight: "bold" }}
+          disabled={isSending}
+          onClick={async () => {
+            setIsSending(true);
+            try {
+              const result = await exportHTML({ blocks, selectedTarget, canvasStyle, selectedBlockIds, past: [], future: [] });
+              if (result.success) {
+                alert(`✅ ${result.message}`);
+              } else {
+                // Don't swallow the error — show exactly what Resend returned
+                alert(`❌ ${result.message}`);
+              }
+            } catch (err: any) {
+              alert(`❌ Unexpected error: ${err.message}`);
+            } finally {
+              setIsSending(false);
+            }
+          }}
+          style={{ width: "100%", padding: "8px", cursor: isSending ? "not-allowed" : "pointer", borderRadius: "4px", border: "none", background: isSending ? "#93c5fd" : "#007bff", color: "white", fontWeight: "bold" }}
         >
-          Export HTML
+          {isSending ? "Sending..." : "Export HTML"}
         </button>
 
         <button
