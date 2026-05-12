@@ -1,14 +1,9 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { EmailState, EmailBlock, BlockStyle } from './types';
+import { EmailState, EmailBlock, BlockStyle,CanvasStyle } from './types';
+import { Blocks } from 'lucide-react';
 
-const defaultCanvasStyle: BlockStyle = {
+const defaultCanvasStyle: CanvasStyle = {
   backgroundColor: '#f8f9fa',
-  border: {
-    width: 0,
-    color: '#000000',
-    radius: 0,
-  },
-  shadow: 'none',
   opacity: 1,
 };
 
@@ -21,13 +16,38 @@ const defaultBlockStyle: BlockStyle = {
   },
   shadow: 'none',
   opacity: 1,
+  padding: '10px', // Set a default padding
 };
 
 const initialState: EmailState = {
   blocks: [],
-  selectedTarget: null,
+  selectedTarget:{type: 'canvas'},
   canvasStyle: defaultCanvasStyle,
+  selectedBlockIds: [],
+  past: [],
+  future: [],
 };
+
+function snapshotState(state: EmailState) {
+  return {
+    blocks: JSON.parse(JSON.stringify(state.blocks)),
+    selectedTarget: JSON.parse(JSON.stringify(state.selectedTarget)),
+    canvasStyle: JSON.parse(JSON.stringify(state.canvasStyle)),
+    // FIX 1: Add selectedBlockIds to the snapshot object so TypeScript is happy
+    // and the system remembers selections during Undo/Redo
+    selectedBlockIds: [...state.selectedBlockIds], 
+  };
+}
+
+function pushToHistory(state: EmailState) {
+  const snapshot = snapshotState(state);
+  state.past.push(snapshot);
+  state.future = [];
+
+  if (state.past.length > 50) {
+    state.past.shift();
+  }
+}
 
 function isOverlapping(a: EmailBlock, b: EmailBlock) {
   const aColEnd = a.layout.colStart + a.layout.colSpan - 1;
@@ -53,6 +73,7 @@ const emailSlice = createSlice({
   reducers: {
     addBlock: (
       state,
+      // ✅ New flexible type
       action: PayloadAction<{
         id: string;
         type: string;
@@ -62,16 +83,23 @@ const emailSlice = createSlice({
           rowStart: number;
           rowSpan: number;
         };
-        content: {
-          value: string;
-        };
+        content: { 
+          value?: string; 
+          url?: string; 
+          alt?: string; 
+          href?: string; 
+        }; 
+        style?: BlockStyle;
       }>
     ) => {
+      pushToHistory(state);
       const newBlock: EmailBlock = {
         id: action.payload.id,
         type: action.payload.type,
         layout: { ...action.payload.layout },
-        style: { ...defaultBlockStyle },
+        style: action.payload.style
+          ? JSON.parse(JSON.stringify(action.payload.style))
+          : { ...defaultBlockStyle },
         content: { ...action.payload.content },
       };
 
@@ -113,9 +141,13 @@ const emailSlice = createSlice({
     },
 
     removeBlock: (state, action: PayloadAction<string>) => {
+      pushToHistory(state);
       state.blocks = state.blocks.filter(
         (block) => block.id !== action.payload
       );
+
+      // FIX 2: Ensure the block is also removed from the multi-select array
+      state.selectedBlockIds = state.selectedBlockIds.filter(id => id !== action.payload);
 
       if (
         state.selectedTarget?.type === 'block' &&
@@ -131,13 +163,22 @@ const emailSlice = createSlice({
         { type: 'block' | 'canvas'; id?: string } | null
       >
     ) => {
+      pushToHistory(state);
       state.selectedTarget = action.payload;
+
+      // FIX 3: Keep the array synced if `selectTarget` is dispatched from older code
+      if (!action.payload || action.payload.type === 'canvas') {
+        state.selectedBlockIds = [];
+      } else if (action.payload.type === 'block' && action.payload.id) {
+        state.selectedBlockIds = [action.payload.id];
+      }
     },
 
     updateBlockContent: (
       state,
       action: PayloadAction<{ id: string; content: string }>
     ) => {
+      pushToHistory(state);
       const block = state.blocks.find(
         (block) => block.id === action.payload.id
       );
@@ -210,37 +251,32 @@ const emailSlice = createSlice({
         style: Partial<BlockStyle>;
       }>
     ) => {
+      pushToHistory(state);
+
       const block = state.blocks.find(
         (b) => b.id === action.payload.id
       );
       if (!block) return;
 
-      const newStyle = action.payload.style;
+      const incomingStyle = action.payload.style;
 
-      if (newStyle.backgroundColor !== undefined) {
-        block.style.backgroundColor = newStyle.backgroundColor;
-      }
-
-      if (newStyle.opacity !== undefined) {
-        block.style.opacity = newStyle.opacity;
-      }
-
-      if (newStyle.shadow !== undefined) {
-        block.style.shadow = newStyle.shadow;
-      }
-
-      if (newStyle.border) {
-        block.style.border = {
-          ...block.style.border,
-          ...newStyle.border,
-        };
-      }
+      block.style = {
+        ...block.style,
+        ...incomingStyle,
+        border: incomingStyle.border
+          ? {
+              ...block.style.border,
+              ...incomingStyle.border,
+            }
+          : block.style.border,
+      };
     },
 
     updateCanvasStyle: (
       state,
       action: PayloadAction<Partial<BlockStyle>>
     ) => {
+      pushToHistory(state);
       const newStyle = action.payload;
 
       if (newStyle.backgroundColor !== undefined) {
@@ -289,6 +325,7 @@ const emailSlice = createSlice({
       state,
       action: PayloadAction<{ id: string; direction: 'up' | 'down' }>
     ) => {
+      pushToHistory(state);
       const index = state.blocks.findIndex(
         (block) => block.id === action.payload.id
       );
@@ -312,6 +349,170 @@ const emailSlice = createSlice({
         ];
       }
     },
+    undo: (state) => {
+      if (state.past.length === 0) return;
+
+      const previous = state.past.pop();
+      if (!previous) return;
+
+      const current = snapshotState(state);
+
+      state.future.unshift(current);
+
+      state.blocks = previous.blocks;
+      state.selectedTarget = previous.selectedTarget;
+      state.canvasStyle = previous.canvasStyle;
+      // FIX 4: Restore selections when undoing
+      state.selectedBlockIds = previous.selectedBlockIds; 
+    },
+    redo: (state) => {
+      if (state.future.length === 0) return;
+
+      const next = state.future.shift();
+      if (!next) return;
+
+      const current = snapshotState(state);
+
+      state.past.push(current);
+
+      state.blocks = next.blocks;
+      state.selectedTarget = next.selectedTarget;
+      state.canvasStyle = next.canvasStyle;
+      // FIX 5: Restore selections when redoing
+      state.selectedBlockIds = next.selectedBlockIds; 
+    },
+    setSelectedBlocks(state, action: PayloadAction<string[]>) {
+      state.selectedBlockIds = action.payload;
+      
+      if (action.payload.length > 0) {
+        state.selectedTarget = { type: 'block', id: action.payload[0] };
+      } else {
+        state.selectedTarget = { type: 'canvas' };
+      }
+    },
+
+    toggleBlockSelection(state, action: PayloadAction<string>) {
+      const blockId = action.payload;
+      const isSelected = state.selectedBlockIds.includes(blockId);
+
+      if (isSelected) {
+        state.selectedBlockIds = state.selectedBlockIds.filter(id => id !== blockId);
+      } else {
+        state.selectedBlockIds.push(blockId);
+      }
+
+      if (state.selectedBlockIds.length === 0) {
+        state.selectedTarget = { type: 'canvas' };
+      } else {
+        state.selectedTarget = { 
+          type: 'block', 
+          id: state.selectedBlockIds[state.selectedBlockIds.length - 1] 
+        };
+      }
+    },
+
+    clearSelection(state) {
+      state.selectedBlockIds = [];
+      state.selectedTarget = { type: 'canvas' };
+    },
+
+    // NEW: Bulk move multiple blocks at once cleanly
+    moveSelectedBlocks: (
+      state,
+      action: PayloadAction<{ colChange: number; rowChange: number }>
+    ) => {
+      if (state.selectedBlockIds.length === 0) return;
+      if (action.payload.colChange === 0 && action.payload.rowChange === 0) return;
+
+      // Only save ONE history snapshot for the whole group movement!
+      pushToHistory(state); 
+
+      const { colChange, rowChange } = action.payload;
+
+      // 1. Sort the blocks based on direction so they clear a path for each other
+      const blocksToMove = state.selectedBlockIds
+        .map((id) => state.blocks.find((b) => b.id === id))
+        .filter((b): b is EmailBlock => b !== undefined)
+        .sort((a, b) => {
+          if (colChange > 0) return b.layout.colStart - a.layout.colStart; // Right-most first
+          if (colChange < 0) return a.layout.colStart - b.layout.colStart; // Left-most first
+          if (rowChange > 0) return b.layout.rowStart - a.layout.rowStart; // Bottom-most first
+          if (rowChange < 0) return a.layout.rowStart - b.layout.rowStart; // Top-most first
+          return 0;
+        });
+
+      // 2. Move them using your exact existing boundary/overlap logic
+      blocksToMove.forEach((block) => {
+        const maxColStart = 48 - block.layout.colSpan + 1;
+        const maxRowStart = 100 - block.layout.rowSpan + 1; // Assuming MAX_ROWS is 100
+
+        const newCol = Math.min(maxColStart, Math.max(1, block.layout.colStart + colChange));
+        const newRow = Math.min(maxRowStart, Math.max(1, block.layout.rowStart + rowChange));
+
+        const proposed: EmailBlock = {
+          ...block,
+          layout: { ...block.layout, colStart: newCol, rowStart: newRow },
+        };
+
+        const hasCollision = state.blocks.some((other) => {
+          if (other.id === block.id) return false;
+          return isOverlapping(proposed, other);
+        });
+
+        if (!hasCollision) {
+          block.layout.colStart = newCol;
+          block.layout.rowStart = newRow;
+        }
+      });
+    },
+
+    // NEW: Bulk delete safely
+    removeSelectedBlocks: (state) => {
+      if (state.selectedBlockIds.length === 0) return;
+      
+      // One snapshot for the whole group delete
+      pushToHistory(state);
+
+      state.blocks = state.blocks.filter((b) => !state.selectedBlockIds.includes(b.id));
+      state.selectedBlockIds = [];
+      state.selectedTarget = { type: 'canvas' };
+    },
+    // NEW: Handle Image Block updates
+    updateImageContent: (
+      state,
+      action: PayloadAction<{ id: string; url: string; alt: string }>
+    ) => {
+      pushToHistory(state);
+      const block = state.blocks.find((b) => b.id === action.payload.id);
+      if (block) {
+        block.content.url = action.payload.url;
+        block.content.alt = action.payload.alt;
+      }
+    },
+
+    // NEW: Handle Button Block link updates
+    updateButtonLink: (
+      state,
+      action: PayloadAction<{ id: string; href: string }>
+    ) => {
+      pushToHistory(state);
+      const block = state.blocks.find((b) => b.id === action.payload.id);
+      if (block) {
+        block.content.href = action.payload.href;
+      }
+    },
+  loadTemplate: (state, action: PayloadAction<{ blocks: EmailBlock[]; canvasStyle: CanvasStyle }>) => {
+    // 💾 Optional: Push current work to history before overwriting so the user can "Undo" back
+    pushToHistory(state);
+
+    // ⚡ Overwrite the current canvas with the saved data
+    state.blocks = action.payload.blocks;
+    state.canvasStyle = action.payload.canvasStyle;
+    
+    // 🧹 Reset selection so the inspector doesn't try to edit a non-existent block
+    state.selectedTarget = { type: 'canvas' };
+    state.selectedBlockIds = [];
+  },
   },
 });
 
@@ -327,6 +528,17 @@ export const {
   updateBlockDimensions,
   updateBlockStyle,
   updateCanvasStyle,
+  undo,
+  redo,
+  setSelectedBlocks,
+  toggleBlockSelection,
+  clearSelection,
+  moveSelectedBlocks,
+  removeSelectedBlocks,
+  updateImageContent,
+  updateButtonLink,
+  loadTemplate,
+
 } = emailSlice.actions;
 
 export default emailSlice.reducer;

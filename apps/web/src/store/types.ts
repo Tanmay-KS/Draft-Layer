@@ -1,36 +1,52 @@
+export interface BorderStyle {
+  width: number;
+  color: string;
+  radius: number;
+}
+
 export interface BlockStyle {
   backgroundColor: string;
-  border: {
-    width: number;
-    color: string;
-    radius: number;
-  };
+  border: BorderStyle;
   shadow: string;
+  color?: string;
+  textAlign?: 'left' | 'center' | 'right';
   opacity: number;
+  padding: string; // Added to fix your TS error
+  fontSize?: number;
+  fontWeight?: string;
 }
 
 export interface EmailBlock {
   id: string;
   type: string;
-
+  content: {
+    value?: string;
+    url?: string;
+    alt?: string;
+    href?: string;
+  };
   layout: {
     colStart: number;
     colSpan: number;
     rowStart: number;
     rowSpan: number;
   };
-
   style: BlockStyle;
-  content: {
-    value: string;
-  };
+}
+
+// This is the "Canvas" version of styles
+export interface CanvasStyle {
+  backgroundColor: string;
+  opacity: number;
+  border?: BorderStyle;
+  shadow?: string;
 }
 
 export interface EmailState {
   blocks: EmailBlock[];
-  selectedTarget: {
-    type: 'block' | 'canvas';
-    id?: string;
-  } | null;
-  canvasStyle: BlockStyle;
+  selectedTarget: { type: 'block' | 'canvas'; id?: string } | null;
+  canvasStyle: CanvasStyle;
+  selectedBlockIds: string[];
+  past: any[]; // Snapshot history
+  future: any[];
 }

@@ -1,12 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from 'react-redux'; 
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import {
   selectTarget,
   removeBlock,
   updateBlockPosition,
   updateBlockDimensions,
+  addBlock,
+  setSelectedBlocks,
+  toggleBlockSelection,
+  clearSelection,
+  moveSelectedBlocks,
+  removeSelectedBlocks,
 } from "../../store/emailSlice";
 
 import { DndContext, useDraggable } from "@dnd-kit/core";
@@ -14,31 +21,107 @@ import { CSS } from "@dnd-kit/utilities";
 
 export default function Canvas() {
   const dispatch = useAppDispatch();
-  const { blocks, selectedTarget, canvasStyle } = useAppSelector(
+  
+  // MODIFIED: Added selectedBlockIds to your existing useAppSelector to avoid TypeScript errors
+  const { blocks, selectedTarget, canvasStyle, selectedBlockIds } = useAppSelector(
     (state) => state.email
   );
 
+  // Handle clicking the empty canvas
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      dispatch(clearSelection());
+    }
+  };
+
+  // Handle clicking an individual block
+  const handleBlockClick = (e: React.MouseEvent, blockId: string) => {
+    e.stopPropagation(); // Prevent canvas click from firing
+    
+    const isMultiSelect = e.ctrlKey || e.metaKey;
+    if (isMultiSelect) {
+      dispatch(toggleBlockSelection(blockId));
+    } else {
+      dispatch(setSelectedBlocks([blockId]));
+    }
+  };
+
   const [showGrid, setShowGrid] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  
+  const selectedBlock = selectedTarget?.type === "block"
+    ? blocks.find((block) => block.id === selectedTarget.id)
+    : null;
 
-  // ✅ ESC deselect (UI only)
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        dispatch(selectTarget(null));
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // 1. Global Escape
+    if (e.key === "Escape") {
+      dispatch(clearSelection());
+      return;
+    }
+
+    if (selectedBlockIds.length === 0) return;
+
+    // 2. Bulk Delete
+    if (e.key === "Delete" || e.key === "Backspace") {
+      // Prevents the browser from going "Back" a page on Backspace
+      e.preventDefault(); 
+      dispatch(removeSelectedBlocks());
+      return;
+    }
+
+    // 3. Bulk Duplicate (Ctrl + D is safer than Ctrl + C to avoid clipboard conflicts)
+    const isModifier = e.ctrlKey || e.metaKey;
+    if (isModifier && e.key.toLowerCase() === "d") {
+      e.preventDefault();
+      selectedBlockIds.forEach(id => {
+        const block = blocks.find(b => b.id === id);
+        if (!block) return;
+        dispatch(addBlock({
+          ...block,
+          id: crypto.randomUUID(),
+          layout: {
+            ...block.layout,
+            colStart: block.layout.colStart + 2,
+            rowStart: block.layout.rowStart + 2,
+          }
+        }));
+      });
+      return;
+    }
+
+    // 4. Bulk Move Logic
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+      // 🛡️ CRITICAL: Prevent the browser from scrolling the page
+      e.preventDefault(); 
+
+      // Support for Mac (metaKey) and Windows (ctrlKey)
+      const step = isModifier ? 10 : (e.shiftKey ? 5 : 1);
+      
+      let colChange = 0;
+      let rowChange = 0;
+
+      if (e.key === "ArrowLeft") colChange = -step;
+      if (e.key === "ArrowRight") colChange = step;
+      if (e.key === "ArrowUp") rowChange = -step;
+      if (e.key === "ArrowDown") rowChange = step;
+
+      if (colChange !== 0 || rowChange !== 0) {
+        dispatch(moveSelectedBlocks({ colChange, rowChange }));
       }
-    };
+    }
+  };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dispatch]);
-
+  window.addEventListener("keydown", handleKeyDown);
+  return () => window.removeEventListener("keydown", handleKeyDown);
+}, [dispatch, selectedBlockIds, blocks]);
+  
   const cellSize = 20;
   const MAX_ROWS = 100;
 
   const maxUsedRow = blocks.reduce((max, block) => {
-    const end =
-      block.layout.rowStart + block.layout.rowSpan - 1;
+    const end = block.layout.rowStart + block.layout.rowSpan - 1;
     return Math.max(max, end);
   }, 0);
 
@@ -60,27 +143,29 @@ export default function Canvas() {
     const cellWidth = gridElement.clientWidth / 48;
     const rowHeight = cellSize;
 
-    const newCol =
-      block.layout.colStart + Math.round(delta.x / cellWidth);
+    // 1. Calculate how many grid cells the mouse moved
+    const colChange = Math.floor(delta.x / cellWidth);
+    const rowChange = Math.ceil(delta.y / rowHeight);
 
-    const newRow =
-      block.layout.rowStart + Math.round(delta.y / rowHeight);
+    if (colChange === 0 && rowChange === 0) return;
 
-    dispatch(
-      updateBlockPosition({
-        id: block.id,
-        colStart: clamp(
-          newCol,
-          1,
-          48 - block.layout.colSpan + 1
-        ),
-        rowStart: clamp(
-          newRow,
-          1,
-          MAX_ROWS - block.layout.rowSpan + 1
-        ),
-      })
-    );
+    // 2. MULTI-DRAG: If the dragged block is part of our selected group, move them all!
+    if (selectedBlockIds.includes(block.id)) {
+      dispatch(moveSelectedBlocks({ colChange, rowChange }));
+    } 
+    // 3. SINGLE DRAG: If they grabbed an unselected block, just move that specific one
+    else {
+      const newCol = block.layout.colStart + colChange;
+      const newRow = block.layout.rowStart + rowChange;
+
+      dispatch(
+        updateBlockPosition({
+          id: block.id,
+          colStart: clamp(newCol, 1, 48 - block.layout.colSpan + 1),
+          rowStart: clamp(newRow, 1, MAX_ROWS - block.layout.rowSpan + 1),
+        })
+      );
+    }
   };
 
   function DraggableBlock({ block }: { block: any }) {
@@ -92,9 +177,8 @@ export default function Canvas() {
       isDragging,
     } = useDraggable({ id: block.id });
 
-    const isSelected =
-      selectedTarget?.type === "block" &&
-      selectedTarget.id === block.id;
+    // MODIFIED: Now checks the array to support multi-select borders
+    const isSelected = selectedBlockIds.includes(block.id);
 
     const style = {
       transform: CSS.Transform.toString(transform),
@@ -114,6 +198,11 @@ export default function Canvas() {
         : "0 2px 6px rgba(0,0,0,0.08)",
       transition:
         "box-shadow 180ms ease, border 180ms ease, background-color 180ms ease, opacity 180ms ease",
+      fontFamily: block.style.fontFamily,
+      fontSize: block.style.fontSize ? `${block.style.fontSize}px` : undefined,
+      fontWeight: block.style.fontWeight,
+      textAlign: block.style.textAlign,
+      color: block.style.color,
     };
 
     type ResizeDir =
@@ -175,14 +264,21 @@ export default function Canvas() {
       if (!gridElement) return;
 
       const cellWidth = gridElement.clientWidth / 48;
-      const rowHeight = cellSize;
+      const rowHeight = cellSize * 2;
 
       const onMouseMove = (moveEvent: MouseEvent) => {
         const deltaX = moveEvent.clientX - startX;
         const deltaY = moveEvent.clientY - startY;
 
-        const colChange = Math.round(deltaX / cellWidth);
-        const rowChange = Math.round(deltaY / rowHeight);
+        const colChange =
+          deltaX >= 0
+            ? Math.floor(deltaX / cellWidth)
+            : Math.ceil(deltaX / cellWidth);
+
+        const rowChange =
+          deltaY >= 0
+            ? Math.floor(deltaY / rowHeight)
+            : Math.ceil(deltaY / rowHeight);
 
         let newColSpan = startColSpan;
         let newRowSpan = startRowSpan;
@@ -230,10 +326,8 @@ export default function Canvas() {
       <div
         ref={setNodeRef}
         style={style}
-        onClick={(e) => {
-          e.stopPropagation();
-          dispatch(selectTarget({ type: "block", id: block.id }));
-        }}
+        // MODIFIED: Replaced selectTarget with the new handleBlockClick function
+        onClick={(e) => handleBlockClick(e, block.id)}
       >
         <div
           {...listeners}
@@ -252,8 +346,43 @@ export default function Canvas() {
           Drag
         </div>
 
-        <strong>{block.type.toUpperCase()}</strong>
-        <div>{block.content.value}</div>
+        {/* Replace the old content <strong> and <div> with this: */}
+        {block.type === "image" ? (
+          <img
+            src={block.content.url || "https://placehold.co/400x300?text=Placeholder+Image"}
+            alt={block.content.alt || "Email Image"}
+            style={{ 
+              width: "100%", 
+              height: "100%", 
+              objectFit: "cover", 
+              display: "block" 
+            }}
+            draggable={false} // Prevents native image dragging from breaking Dnd-kit
+          />
+        ) : block.type === "button" ? (
+          <a
+            href={block.content.href || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "flex",
+              width: "100%",
+              height: "100%",
+              alignItems: "center",
+              justifyContent: block.style.textAlign || "center",
+              textDecoration: "none",
+              color: "inherit",
+              fontWeight: "inherit",
+            }}
+          >
+            {block.content.value || "Button"}
+          </a>
+        ) : (
+          <>
+            <strong>{block.type.toUpperCase()}</strong>
+            <div>{block.content.value}</div>
+          </>
+        )}
 
         {isSelected &&
           ["right","left","bottom","top","top-left","top-right","bottom-left","bottom-right"].map((pos) => (
@@ -286,22 +415,26 @@ export default function Canvas() {
     );
   }
 
-  const isCanvasSelected =
-    selectedTarget?.type === "canvas";
+  const isCanvasSelected = selectedTarget?.type === "canvas";
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <div style={{ flex: 1, overflow: "auto", padding: "10px" }}>
         <div
           id="canvas-grid"
-          onClick={() => dispatch(selectTarget({ type: "canvas" }))}
+          // MODIFIED: Uses handleCanvasClick to safely clear selections
+          onClick={handleCanvasClick}
           onMouseEnter={() => setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}
           style={{
-            minHeight: `${visualRows * cellSize}px`,
+            minHeight: `${visualRows * cellSize*2}px`,
             backgroundColor: canvasStyle.backgroundColor,
-            border: `${canvasStyle.border.width}px solid ${canvasStyle.border.color}`,
-            borderRadius: `${canvasStyle.border.radius}px`,
+            // ✅ New safe code
+            border: canvasStyle.border 
+              ? `${canvasStyle.border.width}px solid ${canvasStyle.border.color}` 
+              : 'none',
+            // Check if border exists BEFORE accessing radius
+            borderRadius: canvasStyle.border ? `${canvasStyle.border.radius}px` : '0px',
             display: "grid",
             gridTemplateColumns: "repeat(48, 1fr)",
             gridAutoRows: `${cellSize}px`,
